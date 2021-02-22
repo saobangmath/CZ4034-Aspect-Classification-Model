@@ -42,7 +42,7 @@ def aggregate_dict(x):
 
     # Stack if possible
     new_agg_x = {}
-    for k, v in agg_x:
+    for k, v in agg_x.items():
         try:
             v = torch.cat(v, dim=0)
         except Exception:
@@ -243,11 +243,16 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
     street_span_preds_masked = torch.where(has_street_preds.unsqueeze(-1), street_span_preds, negative_one)  # (B, 2)
 
     # Calculate accuracy
-    poi_span_acc = (poi_span_gt.int() == poi_span_preds_masked.int()).all(-1)  # (B,)
-    poi_span_acc = poi_span_acc.sum() / float(len(poi_span_acc))  # scalar
-    street_span_acc = (street_span_gt.int() == street_span_preds_masked.int()).all(-1)  # (B,)
-    street_span_acc = street_span_acc.sum() / float(len(street_span_acc))  # scalar
-    acc = {"poi_acc": poi_span_acc, "street_acc": street_span_acc}
+    poi_span_correct = (poi_span_gt.int() == poi_span_preds_masked.int()).all(-1)  # (B,)
+    poi_span_acc = poi_span_correct.sum() / float(len(poi_span_correct))  # scalar
+
+    street_span_correct = (street_span_gt.int() == street_span_preds_masked.int()).all(-1)  # (B,)
+    street_span_acc = street_span_correct.sum() / float(len(street_span_correct))  # scalar
+
+    total_correct = (poi_span_correct & street_span_correct)  # (B,)
+    total_acc = total_correct.sum() / float(len(total_correct))  # scalar
+
+    acc = {"total_acc": total_acc, "poi_acc": poi_span_acc, "street_acc": street_span_acc}
 
     # Generate prediction csv if needed
     if save_csv_path is not None:

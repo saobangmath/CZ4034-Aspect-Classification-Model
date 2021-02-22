@@ -52,6 +52,8 @@ class Trainer:
         # Set additional attributes
         self._set_epoch(self.start_epoch - 1)  # training not yet started
         self.config["trainer"] = self
+        self._best_acc = -float("inf")
+        self._no_improve = 0
 
     @from_config(requires_all=True)
     def _get_save_dir(self, work_dir, resume_from):
@@ -279,13 +281,27 @@ class Trainer:
 
         tot_inp = aggregate_dict(tot_inp)
         tot_outp = aggregate_dict(tot_outp)
-
-        # Early stopping
-        self._is_best
-        self._stop
+        acc = compute_metrics_from_inputs_and_outputs(
+            inputs=tot_inp, outputs=tot_outp, tokenizer=self.tokenizer, save_csv_path=None,
+            confidence_threshold=self.config["evaluation"]["confidence_threshold"])
+        self._record_metrics(acc)
 
         model.train()
         return
+
+    def _record_metrics(self, acc):
+        total_acc = acc["total_acc"]
+
+        if self._best_acc < total_acc:
+            self._best_acc = total_acc
+            self._is_best = True
+            self._no_improve = 0
+        else:
+            self._is_best = False
+            self._no_improve += 1
+
+        early_stopping = self.config["training"]["early_stopping"]
+        self._stop = (self._no_improve > early_stopping) if early_stopping is not None else False
 
     @from_config(main_args="training", requires_all=True)
     def _train(self, num_epochs, debugging=False, max_grad_norm=None):
@@ -320,7 +336,7 @@ class Trainer:
             if self._stop:
                 early_stopping = self.config["training"]["early_stopping"]
                 logger.info(f"Model not improved over {early_stopping} "
-                            f"epochs. Stopping...")
+                            f"epochs. Stopping training...")
                 break
 
         # Test
