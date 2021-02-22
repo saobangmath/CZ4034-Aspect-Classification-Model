@@ -286,6 +286,9 @@ class Trainer:
             confidence_threshold=self.config["evaluation"]["confidence_threshold"])
         self._record_metrics(acc)
 
+        to_log = [f"{k}: {v.item():.3f}" for k, v in acc.items()]
+        logger.info(f"{prefix}: {', '.join(to_log)}")
+
         model.train()
         return
 
