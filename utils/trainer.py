@@ -267,13 +267,13 @@ class Trainer:
                 t.set_description(prefix)
 
                 for i, data in enumerate(t):
-                    tot_inp.append(data)
                     # Input
                     data = to_device(data, self.device)
+                    tot_inp.append(data)
 
                     # Forward
                     output = model(**data)
-                    tot_outp.append(to_device(output, torch.device("cpu")))
+                    tot_outp.append(output)
 
                     # Break when reaching 10 iterations when debugging
                     if debugging and i == 9:
