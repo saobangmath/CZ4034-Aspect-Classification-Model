@@ -103,6 +103,7 @@ class CustomDataset(Dataset):
                     info[new_name] = new_toks.name
                     new_toks = new_toks[this_col_name]
                     new_span_length = len(new_toks)
+                    break
 
                 # Augment
                 tokens = info["tokens"][:this_orig_start] + new_toks + info["tokens"][this_orig_end + 1:]
