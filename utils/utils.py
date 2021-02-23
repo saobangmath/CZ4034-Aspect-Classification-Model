@@ -219,38 +219,55 @@ class Timer:
 
 
 def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confidence_threshold=0.5, save_csv_path=None):
-    input_ids = inputs["input_ids"]
+    if isinstance(inputs, dict):
+        inputs = [inputs]
+    if isinstance(outputs, dict):
+        outputs = [outputs]
 
-    # Groundtruths
-    poi_start_gt, poi_end_gt = inputs["poi_start"], inputs["poi_end"]
-    street_start_gt, street_end_gt = inputs["street_start"], inputs["street_end"]
-    # Stack
-    poi_span_gt = torch.stack([poi_start_gt, poi_end_gt], dim=-1)  # (B, 2)
-    street_span_gt = torch.stack([street_start_gt, street_end_gt], dim=-1)  # (B, 2)
+    poi_span_correct_all, street_span_correct_all = [], []
 
-    # Predictions
-    poi_span_preds, street_span_preds = outputs["poi_span_preds"], outputs["street_span_preds"]  # (B, L, 2)
-    poi_span_preds = poi_span_preds.argmax(dim=1)  # (B, 2)
-    street_span_preds = street_span_preds.argmax(dim=1)  # (B, 2)
+    for inputs_i, outputs_i in zip(inputs, outputs):  # by batch
+        input_ids = inputs_i["input_ids"]
 
-    poi_existence_preds, street_existence_preds = outputs["poi_existence_preds"], outputs["street_existence_preds"]  # (B,)
-    has_poi_preds = (poi_existence_preds >= confidence_threshold)  # (B,)
-    has_street_preds = (street_existence_preds >= confidence_threshold)  # (B,)
+        # Groundtruths
+        poi_start_gt, poi_end_gt = inputs_i["poi_start"], inputs_i["poi_end"]
+        street_start_gt, street_end_gt = inputs_i["street_start"], inputs_i["street_end"]
+        # Stack
+        poi_span_gt = torch.stack([poi_start_gt, poi_end_gt], dim=-1)  # (B, 2)
+        street_span_gt = torch.stack([street_start_gt, street_end_gt], dim=-1)  # (B, 2)
 
-    # Mask predictions that model is not confident about by -1 (i.e., not present)
-    negative_one = torch.tensor(-1).to(poi_span_preds)
-    poi_span_preds_masked = torch.where(has_poi_preds.unsqueeze(-1), poi_span_preds, negative_one)  # (B, 2)
-    street_span_preds_masked = torch.where(has_street_preds.unsqueeze(-1), street_span_preds, negative_one)  # (B, 2)
+        # Predictions
+        poi_span_preds, street_span_preds = outputs_i["poi_span_preds"], outputs_i["street_span_preds"]  # (B, L, 2)
+        poi_span_preds = poi_span_preds.argmax(dim=1)  # (B, 2)
+        street_span_preds = street_span_preds.argmax(dim=1)  # (B, 2)
+
+        poi_existence_preds = outputs_i["poi_existence_preds"]  # (B,)
+        street_existence_preds = outputs_i["street_existence_preds"]  # (B,)
+        has_poi_preds = (poi_existence_preds >= confidence_threshold)  # (B,)
+        has_street_preds = (street_existence_preds >= confidence_threshold)  # (B,)
+
+        # Mask predictions that model is not confident about by -1 (i.e., not present)
+        negative_one = torch.tensor(-1).to(poi_span_preds)
+        poi_span_preds_masked = torch.where(has_poi_preds.unsqueeze(-1), poi_span_preds, negative_one)  # (B, 2)
+        street_span_preds_masked = torch.where(
+            has_street_preds.unsqueeze(-1), street_span_preds, negative_one)  # (B, 2)
+
+        # Calculate accuracy
+        poi_span_correct = (poi_span_gt.int() == poi_span_preds_masked.int()).all(-1)  # (B,)
+        poi_span_correct_all.append(poi_span_correct)
+
+        street_span_correct = (street_span_gt.int() == street_span_preds_masked.int()).all(-1)  # (B,)
+        street_span_correct_all.append(street_span_correct)
 
     # Calculate accuracy
-    poi_span_correct = (poi_span_gt.int() == poi_span_preds_masked.int()).all(-1)  # (B,)
-    poi_span_acc = poi_span_correct.sum() / float(len(poi_span_correct))  # scalar
+    poi_span_correct_all = torch.cat(poi_span_correct_all, dim=0)  # (N,), where N is length of the dataset
+    poi_span_acc = poi_span_correct_all.sum() / float(len(poi_span_correct_all))  # scalar
 
-    street_span_correct = (street_span_gt.int() == street_span_preds_masked.int()).all(-1)  # (B,)
-    street_span_acc = street_span_correct.sum() / float(len(street_span_correct))  # scalar
+    street_span_correct_all = torch.cat(street_span_correct_all, dim=0)  # (N,), where N is length of the dataset
+    street_span_acc = street_span_correct_all.sum() / float(len(street_span_correct_all))  # scalar
 
-    total_correct = (poi_span_correct & street_span_correct)  # (B,)
-    total_acc = total_correct.sum() / float(len(total_correct))  # scalar
+    total_correct_all = poi_span_correct_all & street_span_correct_all
+    total_acc = total_correct_all.sum() / float(len(total_correct_all))  # scalar
 
     acc = {"total_acc": total_acc, "poi_acc": poi_span_acc, "street_acc": street_span_acc}
 

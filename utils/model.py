@@ -179,7 +179,8 @@ class BertForAddressExtraction(nn.Module):
         outp = {"poi_span_preds": poi_span_preds,  # (B, L, 2)
                 "poi_existence_preds": poi_existence_preds,  # (B,)
                 "street_span_preds": street_span_preds,  # (B, L, 2)
-                "street_existence_preds": street_existence_preds  # (B,)
+                "street_existence_preds": street_existence_preds,  # (B,)
+                "attention_mask": attention_mask,  # (B, L)
                 }
 
         # Get loss if training (i.e., some tensors are not provided)

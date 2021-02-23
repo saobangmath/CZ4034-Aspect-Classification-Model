@@ -14,8 +14,8 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 
 from utils.model import BertForAddressExtraction
 from utils.data import CustomDataset, DataCollatorWithPadding
-from utils.utils import (from_config, to_device, aggregate_dict,
-                         ConfigComparer, Timer, compute_metrics_from_inputs_and_outputs)
+from utils.utils import (from_config, to_device, compute_metrics_from_inputs_and_outputs,
+                         ConfigComparer, Timer)
 
 
 class Trainer:
@@ -279,8 +279,6 @@ class Trainer:
                     if debugging and i == 9:
                         break
 
-        tot_inp = aggregate_dict(tot_inp)
-        tot_outp = aggregate_dict(tot_outp)
         acc = compute_metrics_from_inputs_and_outputs(
             inputs=tot_inp, outputs=tot_outp, tokenizer=self.tokenizer, save_csv_path=None,
             confidence_threshold=self.config["evaluation"]["confidence_threshold"])
