@@ -93,6 +93,14 @@ class Trainer:
         self.model = BertForAddressExtraction(self.config).to(self.device)
         self.tokenizer = self.model.tokenizer
 
+        # Initialize optimizer
+        if isinstance(learning_rate, str):
+            learning_rate = eval(learning_rate)
+        self.optimizer = AdamW(
+            [params for params in self.model.parameters()
+             if params.requires_grad],
+            lr=learning_rate, weight_decay=weight_decay)
+
         # Load from a pretrained model
         self.start_epoch = 0
 
@@ -123,14 +131,6 @@ class Trainer:
             self.model.load_state_dict(
                 checkpoint["model"])
             self.optimizer.load_state_dict(checkpoint["optimizer"])
-
-        # Initialize optimizer
-        if isinstance(learning_rate, str):
-            learning_rate = eval(learning_rate)
-        self.optimizer = AdamW(
-            [params for params in self.model.parameters()
-             if params.requires_grad],
-            lr=learning_rate, weight_decay=weight_decay)
 
         self.resume_from = resume_from
         self.load_from = load_from
