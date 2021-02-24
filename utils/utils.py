@@ -303,11 +303,12 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
             == len(street_span_preds_all) == len(street_existence_preds_all)
         if has_gt:
             assert len(poi_span_preds_all) == len(poi_span_gt_all) == len(street_span_gt_all)
-        decode = partial(tokenizer, skip_special_tokens=True,
-                         clean_up_tokenization_spaces=True)
 
-        input_i, input_j = 0, 0
+        decode = partial(tokenizer.decode, skip_special_tokens=True,
+                         clean_up_tokenization_spaces=True)
+        input_i, input_j = 0, -1
         records = []
+
         for i, (poi_span_pred, poi_existence_pred, street_span_pred, street_existence_pred) \
                 in enumerate(zip(poi_span_preds_all, poi_existence_preds_all,
                                  street_span_preds_all, street_existence_preds_all)):
@@ -338,7 +339,8 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
                     else:
                         pred_str = "" if pred_start == - 1 else decode(input_ids[pred_start:pred_end + 1])
                     record.update({
-                        f"{col_name}_gt": gt_str, f"{col_name}_pred": pred_str, f"has_{col_name}": conf_score,
+                        f"{col_name}_gt": gt_str, f"{col_name}_pred": pred_str,
+                        f"has_{col_name}": round(conf_score.cpu().item(), 3),
                     })
             else:
                 to_iterate = [(poi_span_pred, "POI"), (street_span_pred, "street")]

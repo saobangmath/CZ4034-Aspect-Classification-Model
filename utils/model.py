@@ -65,6 +65,7 @@ class BertForAddressExtraction(nn.Module):
         self.poi_existence = nn.Linear(self.base_model_config.hidden_size, 1)
         self.street_span_classifier = nn.Linear(self.base_model_config.hidden_size, 2)
         self.street_existence = nn.Linear(self.base_model_config.hidden_size, 1)
+        self.sigmoid = nn.Sigmoid()
 
         # Fusion
         if fusion not in ["max_pooling", "average_pooling", "sum"]:
@@ -123,7 +124,7 @@ class BertForAddressExtraction(nn.Module):
         street_span_loss = F.cross_entropy(street_span_preds[has_street], street_span_gt[has_street])
 
         # Street existence loss
-        street_existence_loss = F.binary_cross_entropy_with_logits(street_existence_preds, has_street.float())
+        street_existence_loss = F.binary_cross_entropy(street_existence_preds, has_street.float())
 
         # Total loss
         total_loss = 0
@@ -175,11 +176,13 @@ class BertForAddressExtraction(nn.Module):
         poi_span_preds = self.poi_span_classifier(hidden_states)  # (B, L, 2)
         poi_existence_preds = self.poi_existence(hidden_states).squeeze(-1)  # (B, L)
         poi_existence_preds = self.fusion_layer(poi_existence_preds, attention_mask, dim=1)  # (B,)
+        poi_existence_preds = self.sigmoid(poi_existence_preds)  # turn into probabilities
 
         # Street
         street_span_preds = self.street_span_classifier(hidden_states)  # (B, L, 2)
         street_existence_preds = self.street_existence(hidden_states).squeeze(-1)  # (B, L)
         street_existence_preds = self.fusion_layer(street_existence_preds, attention_mask, dim=1)  # (B,)
+        street_existence_preds = self.sigmoid(street_existence_preds)  # turn into probabilities
 
         # Need to mask predictions with attention mask so that padding does not affect the probabilities
         epsilon = torch.tensor(1e-16).to(poi_span_preds)
