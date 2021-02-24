@@ -176,11 +176,11 @@ class Trainer:
                 raise ValueError("Either argument `data_path` or `val` value in the config file must be specified.")
 
             if self.config["data_path"] is None:
-                data_path = self.config["data"]["val"]
+                data_path = self.config["data"]["val"]["paths"]
             else:
                 data_path = self.config["data_path"]
             dataset = CustomDataset(
-                self.config, tokenizer=self.tokenizer, paths=[data_path], p_augmentation=0.0)
+                self.config, tokenizer=self.tokenizer, paths=data_path, p_augmentation=0.0)
             self.dataloaders["eval"] = DataLoader(
                 dataset, batch_size=round(batch_size * batch_size_multiplier),
                 shuffle=False, collate_fn=collate_fn, num_workers=num_workers)
