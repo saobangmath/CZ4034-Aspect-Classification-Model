@@ -38,7 +38,8 @@ class Trainer:
         self._initialize_dataloaders(collate_fn)
 
         # Scheduler needs to be initialized after dataloaders since we need more info from dataset
-        self._initialize_scheduler()
+        if self.action == "training":
+            self._initialize_scheduler()
 
         # Copy config
         if self.save_dir is not None:
