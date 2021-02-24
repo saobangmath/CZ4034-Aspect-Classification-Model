@@ -6,12 +6,13 @@ import yaml
 from utils.trainer import Trainer
 
 
-DESCRIPTION = """Train and evaluate a Faster R-CNN model."""
+DESCRIPTION = """Train and evaluate a BERT for address extraction model."""
 
 
 def main(args):
     with open(args.config_path, "r") as conf:
         config = yaml.load(conf, Loader=yaml.FullLoader)
+    config["action"] = "training"
     config["resume_from"] = args.resume_from
     config["load_from"] = args.load_from
     config["config_path"] = args.config_path

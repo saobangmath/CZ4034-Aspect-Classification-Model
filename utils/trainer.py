@@ -21,6 +21,7 @@ from utils.utils import (from_config, to_device, compute_metrics_from_inputs_and
 class Trainer:
     @from_config(requires_all=True)
     def __init__(self, config_path):
+        self.action = self.config["action"]
         # Get save dir
         self._get_save_dir()
         # Get logger
@@ -58,16 +59,22 @@ class Trainer:
     @from_config(requires_all=True)
     def _get_save_dir(self, work_dir, resume_from):
         # Get save directory
-        if resume_from is None:
-            if work_dir is not None:
-                curr_time = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-                save_dir = os.path.join(work_dir, curr_time)
-                os.makedirs(save_dir, exist_ok=True)
+        if self.action == "training":
+            if resume_from is None:
+                if work_dir is not None:
+                    curr_time = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                    save_dir = os.path.join(work_dir, curr_time)
+                    os.makedirs(save_dir, exist_ok=True)
+                else:
+                    save_dir = None
             else:
-                save_dir = None
+                save_dir = os.path.realpath(resume_from)
+                assert os.path.exists(save_dir)
+        elif self.action == "evaluation":
+            save_dir = None
         else:
-            save_dir = os.path.realpath(resume_from)
-            assert os.path.exists(save_dir)
+            raise ValueError(f"Unrecognized action: {self.action}")
+        
         self.config["training"]["save_dir"] = self.save_dir = save_dir
 
     def _get_logger(self):
@@ -89,8 +96,9 @@ class Trainer:
         possible."""
         # Initialize backbone model
         logger.info("Initializing model...")
+        from_pretrained = load_from is not None or resume_from is not None
         self.device = torch.device(device)
-        self.model = BertForAddressExtraction(self.config).to(self.device)
+        self.model = BertForAddressExtraction(self.config, from_pretrained=from_pretrained).to(self.device)
         self.tokenizer = self.model.tokenizer
 
         # Initialize optimizer
@@ -124,7 +132,7 @@ class Trainer:
         if load_from is not None:
             logger.info(f"Loading pretrained model from {load_from}")
 
-        if resume_from is not None or load_from is not None:
+        if from_pretrained:
             load_from_path = resume_from if resume_from is not None else load_from
 
             checkpoint = torch.load(load_from_path, map_location=self.device)
@@ -139,26 +147,46 @@ class Trainer:
         self.dataloaders = {}
         batch_size = self.config["training"]["batch_size"]
         num_workers = self.config["training"]["num_workers"]
+        batch_size_multiplier = self.config["training"].get(
+            "batch_size_multiplier", 1.0)
 
-        for set_name, set_info in self.config["data"].items():
-            if set_name not in ["train", "val", "test"]:
-                continue
+        if self.action == "training":
+            for set_name, set_info in self.config["data"].items():
+                if set_name not in ["train", "val", "test"]:
+                    continue
 
-            if set_name == "train":
-                shuffle = True
-                bs = batch_size
-                p_augmentation = set_info["p_augmentation"]
+                if set_name == "train":
+                    shuffle = True
+                    bs = batch_size
+                    p_augmentation = set_info["p_augmentation"]
+                else:
+                    shuffle = False
+                    bs = round(batch_size * batch_size_multiplier)
+                    p_augmentation = 0.0
+
+                dataset = CustomDataset(
+                    self.config, tokenizer=self.tokenizer, 
+                    paths=set_info["paths"], p_augmentation=p_augmentation)
+                self.dataloaders[set_name] = DataLoader(
+                    dataset, batch_size=bs, shuffle=shuffle, 
+                    collate_fn=collate_fn, num_workers=num_workers)
+
+        elif self.action == "evaluation":
+            if self.config["data_path"] is None and not hasattr(self.config["data"], "val"):
+                raise ValueError("Either argument `data_path` or `val` value in the config file must be specified.")
+            
+            if self.config["data_path"] is None:
+                data_path = self.config["data"]["val"]
             else:
-                shuffle = False
-                batch_size_multiplier = self.config["training"].get(
-                    "batch_size_multiplier", 1.0)
-                bs = round(batch_size * batch_size_multiplier)
-                p_augmentation = 0.0
-
+                data_path = self.config["data_path"]
             dataset = CustomDataset(
-                self.config, tokenizer=self.tokenizer, paths=set_info["paths"], p_augmentation=p_augmentation)
-            self.dataloaders[set_name] = DataLoader(
-                dataset, batch_size=bs, shuffle=shuffle, collate_fn=collate_fn, num_workers=num_workers)
+                self.config, tokenizer=self.tokenizer, paths=[data_path], p_augmentation=0.0)
+            self.dataloaders["eval"] = DataLoader(
+                dataset, batch_size=round(batch_size * batch_size_multiplier), 
+                shuffle=False, collate_fn=collate_fn, num_workers=num_workers)
+        
+        else:
+            raise ValueError(f"Unrecognized action: {self.action}")
 
     @from_config(requires_all=True)
     def _initialize_scheduler(self, lr_warmup):
@@ -256,7 +284,7 @@ class Trainer:
         logger.info(f"{description} took {timer.get_total_time():.2f}s.")
         return
 
-    def evaluate_one_epoch(self, model, dataloader, prefix, debugging=False):
+    def evaluate_one_epoch(self, model, dataloader, prefix, debugging=False, save_csv_path=None):
         """Evaluate the model for one epoch."""
         model.eval()
         tot_inp, tot_outp = [], []
@@ -280,7 +308,7 @@ class Trainer:
                         break
 
         acc = compute_metrics_from_inputs_and_outputs(
-            inputs=tot_inp, outputs=tot_outp, tokenizer=self.tokenizer, save_csv_path=None,
+            inputs=tot_inp, outputs=tot_outp, tokenizer=self.tokenizer, save_csv_path=save_csv_path,
             confidence_threshold=self.config["evaluation"]["confidence_threshold"])
         self._record_metrics(acc)
 
@@ -347,3 +375,9 @@ class Trainer:
 
     def train(self):
         return self._train(self.config)
+    
+    def eval(self):
+        assert self.action == "evaluation"
+        return self.evaluate_one_epoch(
+            self.model, self.dataloaders["eval"], prefix="Evaluation", 
+            debugging=False, save_csv_path=self.config["save_csv_path"])

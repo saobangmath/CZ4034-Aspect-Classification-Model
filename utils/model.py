@@ -23,6 +23,11 @@ class BertForAddressExtraction(nn.Module):
         Pretrained tokenizer name or path if not the same as model_name.
     cache_dir : str
         Path to directory to store the pretrained models downloaded from huggingface.co.
+    from_pretrained : bool
+        Whether intializing model from pretrained model (other than the pretrained model from huggingface). If yes, 
+        avoid loading pretrained model from huggingface to save time.
+    freeze_base_model : bool
+        Whether to freeze the base BERT model.
     fusion : str
         One of ["max_pooling", "average_pooling", "sum"]. How the hidden states from each timestep will be fused
         together to produce a single vector used for binary classifiers (for exist/non-exist of POI/street).
@@ -32,8 +37,8 @@ class BertForAddressExtraction(nn.Module):
         lambda[2] * street_span_loss + lambda[3] * street_existence `
     """
     @from_config(main_args="model", requires_all=True)
-    def __init__(self, model_name_or_path, config_name=None, tokenizer_name=None, cache_dir=None,
-                 freeze_base_model=False, fusion="max_pooling", lambdas=[1, 1, 1, 1]):
+    def __init__(self, model_name_or_path, config_name=None, tokenizer_name=None, cache_dir=None, 
+                 from_pretrained=False, freeze_base_model=False, fusion="max_pooling", lambdas=[1, 1, 1, 1]):
         super(BertForAddressExtraction, self).__init__()
         # Initialize config, tokenizer and model (feature extractor)
         self.base_model_config = AutoConfig.from_pretrained(
@@ -45,12 +50,15 @@ class BertForAddressExtraction(nn.Module):
             cache_dir=cache_dir,
             use_fast=True,
         )
-        self.base_model = AutoModel.from_pretrained(
-            model_name_or_path,
-            from_tf=bool(".ckpt" in model_name_or_path),
-            config=self.base_model_config,
-            cache_dir=cache_dir,
-        )
+        if from_pretrained:
+            self.base_model = AutoModel.from_config(config=self.base_model_config)
+        else:
+            self.base_model = AutoModel.from_pretrained(
+                model_name_or_path,
+                from_tf=bool(".ckpt" in model_name_or_path),
+                config=self.base_model_config,
+                cache_dir=cache_dir,
+            )
 
         # Additional layers
         self.poi_span_classifier = nn.Linear(self.base_model_config.hidden_size, 2)
@@ -99,21 +107,18 @@ class BertForAddressExtraction(nn.Module):
         # Predictions
         poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds,
         # Groundtruths
-        poi_start, poi_end, has_poi, street_start, street_end, has_street, attention_mask,
+        poi_start, poi_end, has_poi, street_start, street_end, has_street,
     ):
         """Compute losses (including total loss) given loss weights"""
-        epsilon = torch.tensor(1e-16).to(poi_span_preds)
 
-        # POI span loss: need to mask predictions with attention mask so that padding does not affect the probabilities
-        poi_span_preds = torch.where(attention_mask.unsqueeze(-1), poi_span_preds, epsilon)  # (B, L, 2)
+        # POI span loss
         poi_span_gt = torch.stack([poi_start, poi_end], dim=-1)  # (B, 2)
         poi_span_loss = F.cross_entropy(poi_span_preds[has_poi], poi_span_gt[has_poi])
 
         # POI existence loss
         poi_existence_loss = F.binary_cross_entropy_with_logits(poi_existence_preds, has_poi.float())
 
-        # Street span loss: need to mask predictions with attention mask so that padding does not affect the probs
-        street_span_preds = torch.where(attention_mask.unsqueeze(-1), street_span_preds, epsilon)  # (B, L, 2)
+        # Street span loss
         street_span_gt = torch.stack([street_start, street_end], dim=-1)  # (B, 2)
         street_span_loss = F.cross_entropy(street_span_preds[has_street], street_span_gt[has_street])
 
@@ -176,6 +181,11 @@ class BertForAddressExtraction(nn.Module):
         street_existence_preds = self.street_existence(hidden_states).squeeze(-1)  # (B, L)
         street_existence_preds = self.fusion_layer(street_existence_preds, attention_mask, dim=1)  # (B,)
 
+        # Need to mask predictions with attention mask so that padding does not affect the probabilities
+        epsilon = torch.tensor(1e-16).to(poi_span_preds)
+        poi_span_preds = torch.where(attention_mask.unsqueeze(-1), poi_span_preds, epsilon)  # (B, L, 2)
+        street_span_preds = torch.where(attention_mask.unsqueeze(-1), street_span_preds, epsilon)  # (B, L, 2)
+
         outp = {"poi_span_preds": poi_span_preds,  # (B, L, 2)
                 "poi_existence_preds": poi_existence_preds,  # (B,)
                 "street_span_preds": street_span_preds,  # (B, L, 2)
@@ -196,7 +206,7 @@ class BertForAddressExtraction(nn.Module):
                 # Predictions
                 poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds,
                 # Groundtruths
-                poi_start, poi_end, has_poi, street_start, street_end, has_street, attention_mask
+                poi_start, poi_end, has_poi, street_start, street_end, has_street
             )
             outp["losses"] = losses
 
