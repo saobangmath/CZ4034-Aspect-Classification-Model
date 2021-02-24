@@ -343,14 +343,18 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
                         f"has_{col_name}": round(conf_score.cpu().item(), 3),
                     })
             else:
-                to_iterate = [(poi_span_pred, "POI"), (street_span_pred, "street")]
+                to_iterate = [
+                    (poi_span_pred, poi_existence_pred, "POI"),
+                    (street_span_pred, street_existence_pred, "street")
+                ]
 
-                for (pred_start, pred_end), col_name in to_iterate:
+                for (pred_start, pred_end), conf_score, col_name in to_iterate:
                     if pred_end < pred_start:
                         pred_str = ""
                     else:
-                        pred_str = "" if pred_start == - 1 else decode(input_ids[pred_start:pred_end + 1])
-                    record.update({f"{col_name}": pred_str})
+                        pred_str = "" if pred_start == - 1 or conf_score < confidence_threshold \
+                            else decode(input_ids[pred_start:pred_end + 1])
+                    record.update({f"{col_name}": pred_str, f"has_{col_name}": round(conf_score.cpu().item(), 6)})
 
             records.append(record)
 
@@ -359,7 +363,6 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
             # Generate to the correct format
             df["POI/street"] = df.apply(lambda x: f"{x['POI']}/{x['street']}", axis=1)
             df["id"] = df.index
-            df = df[["id", "POI/street"]]
         df.to_csv(save_csv_path, index=False)
 
     if has_gt:
