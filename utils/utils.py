@@ -320,7 +320,7 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
             if input_j >= len(input_ids_all[input_i]):
                 input_i += 1
                 input_j = 0
-            input_ids = input_ids_all[input_i][input_j]
+            input_ids = input_ids_all[input_i][input_j].tolist()
             record = {
                 "raw_address": decode(input_ids),
             }
