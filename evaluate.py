@@ -14,10 +14,11 @@ def main(args):
     with open(args.config_path, "r") as conf:
         config = yaml.load(conf, Loader=yaml.FullLoader)
     config["action"] = "evaluation"
+    config["config_path"] = args.config_path
     config["load_from"] = args.load_from
     config["data_path"] = args.data_path
     config["resume_from"] = None
-    
+
     if args.save_csv_path is None:
         model_dir, _ = os.path.split(args.load_from)
         args.save_csv_path = os.path.join(model_dir, "prediction_results.csv")

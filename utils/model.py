@@ -24,7 +24,7 @@ class BertForAddressExtraction(nn.Module):
     cache_dir : str
         Path to directory to store the pretrained models downloaded from huggingface.co.
     from_pretrained : bool
-        Whether intializing model from pretrained model (other than the pretrained model from huggingface). If yes, 
+        Whether intializing model from pretrained model (other than the pretrained model from huggingface). If yes,
         avoid loading pretrained model from huggingface to save time.
     freeze_base_model : bool
         Whether to freeze the base BERT model.
@@ -37,7 +37,7 @@ class BertForAddressExtraction(nn.Module):
         lambda[2] * street_span_loss + lambda[3] * street_existence `
     """
     @from_config(main_args="model", requires_all=True)
-    def __init__(self, model_name_or_path, config_name=None, tokenizer_name=None, cache_dir=None, 
+    def __init__(self, model_name_or_path, config_name=None, tokenizer_name=None, cache_dir=None,
                  from_pretrained=False, freeze_base_model=False, fusion="max_pooling", lambdas=[1, 1, 1, 1]):
         super(BertForAddressExtraction, self).__init__()
         # Initialize config, tokenizer and model (feature extractor)

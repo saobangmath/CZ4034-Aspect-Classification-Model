@@ -74,7 +74,7 @@ class Trainer:
             save_dir = None
         else:
             raise ValueError(f"Unrecognized action: {self.action}")
-        
+
         self.config["training"]["save_dir"] = self.save_dir = save_dir
 
     def _get_logger(self):
@@ -165,16 +165,16 @@ class Trainer:
                     p_augmentation = 0.0
 
                 dataset = CustomDataset(
-                    self.config, tokenizer=self.tokenizer, 
+                    self.config, tokenizer=self.tokenizer,
                     paths=set_info["paths"], p_augmentation=p_augmentation)
                 self.dataloaders[set_name] = DataLoader(
-                    dataset, batch_size=bs, shuffle=shuffle, 
+                    dataset, batch_size=bs, shuffle=shuffle,
                     collate_fn=collate_fn, num_workers=num_workers)
 
         elif self.action == "evaluation":
-            if self.config["data_path"] is None and not hasattr(self.config["data"], "val"):
+            if self.config["data_path"] is None and not ("val" in self.config["data"]):
                 raise ValueError("Either argument `data_path` or `val` value in the config file must be specified.")
-            
+
             if self.config["data_path"] is None:
                 data_path = self.config["data"]["val"]
             else:
@@ -182,9 +182,9 @@ class Trainer:
             dataset = CustomDataset(
                 self.config, tokenizer=self.tokenizer, paths=[data_path], p_augmentation=0.0)
             self.dataloaders["eval"] = DataLoader(
-                dataset, batch_size=round(batch_size * batch_size_multiplier), 
+                dataset, batch_size=round(batch_size * batch_size_multiplier),
                 shuffle=False, collate_fn=collate_fn, num_workers=num_workers)
-        
+
         else:
             raise ValueError(f"Unrecognized action: {self.action}")
 
@@ -375,9 +375,9 @@ class Trainer:
 
     def train(self):
         return self._train(self.config)
-    
+
     def eval(self):
         assert self.action == "evaluation"
         return self.evaluate_one_epoch(
-            self.model, self.dataloaders["eval"], prefix="Evaluation", 
+            self.model, self.dataloaders["eval"], prefix="Evaluation",
             debugging=False, save_csv_path=self.config["save_csv_path"])

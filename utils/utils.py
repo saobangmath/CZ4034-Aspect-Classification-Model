@@ -227,20 +227,24 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
         outputs = [outputs]
 
     input_ids_all = []
+    has_gt = "poi_start" in inputs[0]
+
     poi_span_preds_all, street_span_preds_all = [], []
     poi_existence_preds_all, street_existence_preds_all = [], []
-    poi_span_gt_all, street_span_gt_all = [], []
+    if has_gt:
+        poi_span_gt_all, street_span_gt_all = [], []
 
     for inputs_i, outputs_i in zip(inputs, outputs):  # by batch
         input_ids = inputs_i["input_ids"]
         input_ids_all.append(input_ids)
 
         # Groundtruths
-        poi_start_gt, poi_end_gt = inputs_i["poi_start"], inputs_i["poi_end"]
-        street_start_gt, street_end_gt = inputs_i["street_start"], inputs_i["street_end"]
-        # Stack
-        poi_span_gt = torch.stack([poi_start_gt, poi_end_gt], dim=-1)  # (B, 2)
-        street_span_gt = torch.stack([street_start_gt, street_end_gt], dim=-1)  # (B, 2)
+        if has_gt:
+            poi_start_gt, poi_end_gt = inputs_i["poi_start"], inputs_i["poi_end"]
+            street_start_gt, street_end_gt = inputs_i["street_start"], inputs_i["street_end"]
+            # Stack
+            poi_span_gt = torch.stack([poi_start_gt, poi_end_gt], dim=-1)  # (B, 2)
+            street_span_gt = torch.stack([street_start_gt, street_end_gt], dim=-1)  # (B, 2)
 
         # Predictions
         poi_span_preds, street_span_preds = outputs_i["poi_span_preds"], outputs_i["street_span_preds"]  # (B, L, 2)
@@ -257,49 +261,60 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
         poi_span_preds = torch.where(has_poi_preds.unsqueeze(-1), poi_span_preds, negative_one)  # (B, 2)
         street_span_preds = torch.where(
             has_street_preds.unsqueeze(-1), street_span_preds, negative_one)  # (B, 2)
-        
+
         # Aggregate
         poi_span_preds_all.append(poi_span_preds)
         poi_existence_preds_all.append(poi_existence_preds)
-        poi_span_gt_all.append(poi_span_gt)
-        
+        if has_gt:
+            poi_span_gt_all.append(poi_span_gt)
+
         street_span_preds_all.append(street_span_preds)
         street_existence_preds_all.append(street_existence_preds)
-        street_span_gt_all.append(street_span_gt)
-    
+        if has_gt:
+            street_span_gt_all.append(street_span_gt)
+
     # Combine results
     poi_span_preds_all = torch.cat(poi_span_preds_all, dim=0)  # (N, 2), where N is length of the dataset
     poi_existence_preds_all = torch.cat(poi_existence_preds_all, dim=0)  # (N,)
-    poi_span_gt_all = torch.cat(poi_span_gt_all, dim=0)  # (N, 2)
-    
+    if has_gt:
+        poi_span_gt_all = torch.cat(poi_span_gt_all, dim=0)  # (N, 2)
+
     street_span_preds_all = torch.cat(street_span_preds_all, dim=0)  # (N, 2)
     street_existence_preds_all = torch.cat(street_existence_preds_all, dim=0)  # (N,)
-    street_span_gt_all = torch.cat(street_span_gt_all, dim=0)  # (N, 2)
+    if has_gt:
+        street_span_gt_all = torch.cat(street_span_gt_all, dim=0)  # (N, 2)
 
     # Calculate accuracy
-    poi_span_correct_all = (poi_span_gt_all.int() == poi_span_preds_all.int()).all(-1)  # (N,)
-    poi_span_acc = poi_span_correct_all.sum() / float(len(poi_span_correct_all))  # scalar
+    if has_gt:
+        poi_span_correct_all = (poi_span_gt_all.int() == poi_span_preds_all.int()).all(-1)  # (N,)
+        poi_span_acc = poi_span_correct_all.sum() / float(len(poi_span_correct_all))  # scalar
 
-    street_span_correct_all = (street_span_gt_all.int() == street_span_preds_all.int()).all(-1)  # (N,)
-    street_span_acc = street_span_correct_all.sum() / float(len(street_span_correct_all))  # scalar
+        street_span_correct_all = (street_span_gt_all.int() == street_span_preds_all.int()).all(-1)  # (N,)
+        street_span_acc = street_span_correct_all.sum() / float(len(street_span_correct_all))  # scalar
 
-    total_correct_all = poi_span_correct_all & street_span_correct_all
-    total_acc = total_correct_all.sum() / float(len(total_correct_all))  # scalar
+        total_correct_all = poi_span_correct_all & street_span_correct_all
+        total_acc = total_correct_all.sum() / float(len(total_correct_all))  # scalar
 
-    acc = {"total_acc": total_acc, "poi_acc": poi_span_acc, "street_acc": street_span_acc}
+        acc = {"total_acc": total_acc, "poi_acc": poi_span_acc, "street_acc": street_span_acc}
 
     # Generate prediction csv if needed
     if save_csv_path is not None:
-        assert sum(len(i) for i in input_ids_all) == len(poi_span_preds_all) == len(poi_span_gt_all) \
-            == len(street_span_preds_all) == len(street_span_gt_all)
+        assert sum(len(i) for i in input_ids_all) == len(poi_span_preds_all) == len(poi_existence_preds_all) \
+            == len(street_span_preds_all) == len(street_existence_preds_all)
+        if has_gt:
+            assert len(poi_span_preds_all) == len(poi_span_gt_all) == len(street_span_gt_all)
         decode = partial(tokenizer, skip_special_tokens=True,
                          clean_up_tokenization_spaces=True)
-        
+
         input_i, input_j = 0, 0
         records = []
-        for poi_span_pred, poi_existence_pred, poi_span_gt, street_span_pred, street_existence_pred, street_span_gt \
-                in zip(poi_span_preds_all, poi_existence_preds_all, poi_span_gt_all, 
-                       street_span_preds_all, street_existence_preds_all, street_span_gt_all):
+        for i, (poi_span_pred, poi_existence_pred, street_span_pred, street_existence_pred) \
+                in enumerate(zip(poi_span_preds_all, poi_existence_preds_all,
+                                 street_span_preds_all, street_existence_preds_all)):
+            # If has groundtruths
+            if has_gt:
+                poi_span_gt = poi_span_gt_all[i]
+                street_span_gt = street_span_gt_all[i]
             # Get index of the `input_ids_all`
             input_j += 1
             if input_j >= len(input_ids_all[input_i]):
@@ -310,23 +325,39 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
                 "raw_address": decode(input_ids),
             }
 
-            to_iterate = [
-                (poi_span_pred, poi_existence_pred, poi_span_gt, "poi"), 
-                (street_span_pred, street_existence_pred, street_span_gt, "street")
-            ]
-            
-            for (pred_start, pred_end), conf_score, (gt_start, gt_end), col_name in to_iterate:
-                gt_str = "" if gt_start == -1 else decode(input_ids[gt_start:gt_end + 1])
-                if pred_end < pred_start:
-                    pred_str = "[INVALID]"
-                else:
-                    pred_str = "" if pred_start == - 1 else decode(input_ids[pred_start:pred_end + 1])
-                record.update({
-                    f"{col_name}_gt": gt_str, f"{col_name}_pred": pred_str, f"has_{col_name}": conf_score,
-                })
+            if has_gt:
+                to_iterate = [
+                    (poi_span_pred, poi_existence_pred, poi_span_gt, "poi"),
+                    (street_span_pred, street_existence_pred, street_span_gt, "street")
+                ]
+
+                for (pred_start, pred_end), conf_score, (gt_start, gt_end), col_name in to_iterate:
+                    gt_str = "" if gt_start == -1 else decode(input_ids[gt_start:gt_end + 1])
+                    if pred_end < pred_start:
+                        pred_str = "[INVALID]"
+                    else:
+                        pred_str = "" if pred_start == - 1 else decode(input_ids[pred_start:pred_end + 1])
+                    record.update({
+                        f"{col_name}_gt": gt_str, f"{col_name}_pred": pred_str, f"has_{col_name}": conf_score,
+                    })
+            else:
+                to_iterate = [(poi_span_pred, "POI"), (street_span_pred, "street")]
+
+                for (pred_start, pred_end), (gt_start, gt_end) in to_iterate:
+                    if pred_end < pred_start:
+                        pred_str = ""
+                    else:
+                        pred_str = "" if pred_start == - 1 else decode(input_ids[pred_start:pred_end + 1])
+                    record.update({f"{col_name}": pred_str})
+
             records.append(record)
-        
+
         df = pd.DataFrame.from_records(records)
+        if not has_gt:
+            # Generate to the correct format
+            df["POI/street"] = df.apply(lambda x: f"{x['POI']}/{x['street']}", axis=1)
+            df["id"] = df.index
+            df = df[["id", "POI/street"]]
         df.to_csv(save_csv_path, index=False)
 
     return acc
