@@ -345,7 +345,7 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
             else:
                 to_iterate = [(poi_span_pred, "POI"), (street_span_pred, "street")]
 
-                for (pred_start, pred_end), (gt_start, gt_end) in to_iterate:
+                for (pred_start, pred_end), col_name in to_iterate:
                     if pred_end < pred_start:
                         pred_str = ""
                     else:
@@ -362,4 +362,5 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
             df = df[["id", "POI/street"]]
         df.to_csv(save_csv_path, index=False)
 
-    return acc
+    if has_gt:
+        return acc

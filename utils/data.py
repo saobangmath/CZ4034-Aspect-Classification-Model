@@ -61,11 +61,12 @@ class CustomDataset(Dataset):
             df = pd.DataFrame.from_dict(df, orient="index")
             dfs.append(df)
         self.df = pd.concat(dfs, ignore_index=True).reset_index(drop=True)
+        self._for_training = "poi_start" in self.df.columns
 
     def __len__(self):
         return len(self.df)
 
-    def __getitem__(self, idx):
+    def _get_item_for_training(self, idx):
         data_info = self.df.iloc[idx]
 
         # Base infos
@@ -161,6 +162,23 @@ class CustomDataset(Dataset):
             # Original info, for debugging
             "orig": data_info.to_dict()
         }
+
+    def _get_item_for_testing(self, idx):
+        data_info = self.df.iloc[idx]
+
+        # Tokens
+        token_idxs = [self._cls_idx] + self.tokenizer.convert_tokens_to_ids(
+            data_info["raw_address_tok"]) + [self._sep_idx]
+
+        return {
+            "input_ids": token_idxs, "attention_mask": [1] * len(token_idxs),
+        }
+
+    def __getitem__(self, idx):
+        if self._for_training:
+            return self._get_item_for_training(idx)
+        else:
+            return self._get_item_for_testing(idx)
 
 
 class DataCollatorWithPadding(HfDataCollatorWithPadding):
