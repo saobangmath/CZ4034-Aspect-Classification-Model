@@ -56,6 +56,8 @@ class Trainer:
         self.config["trainer"] = self
         self._best_acc = -float("inf")
         self._no_improve = 0
+        self._stop = False
+        self._is_best = False
 
     @from_config(requires_all=True)
     def _get_save_dir(self, work_dir, resume_from):
@@ -311,10 +313,12 @@ class Trainer:
         acc = compute_metrics_from_inputs_and_outputs(
             inputs=tot_inp, outputs=tot_outp, tokenizer=self.tokenizer, save_csv_path=save_csv_path,
             confidence_threshold=self.config["evaluation"]["confidence_threshold"])
-        self._record_metrics(acc)
 
-        to_log = [f"{k}: {v.item():.3f}" for k, v in acc.items()]
-        logger.info(f"{prefix}: {', '.join(to_log)}")
+        if acc is not None:
+            self._record_metrics(acc)
+
+            to_log = [f"{k}: {v.item():.3f}" for k, v in acc.items()]
+            logger.info(f"{prefix}: {', '.join(to_log)}")
 
         model.train()
         return
