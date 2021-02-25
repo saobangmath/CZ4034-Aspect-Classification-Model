@@ -220,7 +220,40 @@ class Timer:
         return time.time() - self.global_start_time
 
 
-def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confidence_threshold=0.5, save_csv_path=None):
+def post_process(poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds,
+                 confidence_threshold=0.5, post_processing=False):
+    """Perform post processing.
+    1. Mask predictions that model is not confident about by -1 (i.e., not present).
+    2. If `post_processing=True`:
+        a. Remove predictions where one span contains the other (keep the one with higher score).
+    """
+    # Mask predictions that model is not confident about by -1 (i.e., not present)
+    has_poi_preds_all = (poi_existence_preds >= confidence_threshold)  # (B,)
+    has_street_preds_all = (street_existence_preds >= confidence_threshold)  # (B,)
+
+    negative_one = torch.tensor(-1).to(poi_span_preds)
+    poi_span_preds = torch.where(has_poi_preds_all.unsqueeze(-1), poi_span_preds, negative_one)  # (B, 2)
+    street_span_preds = torch.where(
+        has_street_preds_all.unsqueeze(-1), street_span_preds, negative_one)  # (B, 2)
+
+    # Remove predictions where one span contains the other (keep the one with higher score)
+    if post_processing:
+        poi_start_preds, poi_end_preds = poi_span_preds[:, 0], poi_span_preds[:, 1]
+        street_start_preds, street_end_preds = street_span_preds[:, 0], street_span_preds[:, 1]
+
+        mask_containing = ((poi_start_preds >= street_start_preds) & (poi_end_preds <= street_end_preds) |
+                           (poi_start_preds < street_start_preds) & (poi_end_preds >= street_end_preds))  # (B,)
+        mask_containing = mask_containing.unsqueeze(-1)  # (B, 1)
+        mask_confidence = (poi_existence_preds > street_existence_preds).unsqueeze(-1)  # (B, 1)
+
+        poi_span_preds = torch.where(mask_containing & (~mask_confidence), negative_one, poi_span_preds)
+        street_span_preds = torch.where(mask_containing & mask_confidence, negative_one, street_span_preds)
+
+    return poi_span_preds, street_span_preds
+
+
+def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confidence_threshold=0.5, save_csv_path=None,
+                                            post_processing=False, show_progress=False):
     if isinstance(inputs, dict):
         inputs = [inputs]
     if isinstance(outputs, dict):
@@ -234,7 +267,12 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
     if has_gt:
         poi_span_gt_all, street_span_gt_all = [], []
 
-    for inputs_i, outputs_i in zip(inputs, outputs):  # by batch
+    if show_progress:
+        from tqdm import tqdm
+    else:
+        tqdm = lambda x, **kwargs: x
+
+    for inputs_i, outputs_i in tqdm(zip(inputs, outputs), desc="Processing predictions"):  # by batch
         input_ids = inputs_i["input_ids"]
         input_ids_all.append(input_ids)
 
@@ -253,14 +291,6 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
 
         poi_existence_preds = outputs_i["poi_existence_preds"]  # (B,)
         street_existence_preds = outputs_i["street_existence_preds"]  # (B,)
-        has_poi_preds = (poi_existence_preds >= confidence_threshold)  # (B,)
-        has_street_preds = (street_existence_preds >= confidence_threshold)  # (B,)
-
-        # Mask predictions that model is not confident about by -1 (i.e., not present)
-        negative_one = torch.tensor(-1).to(poi_span_preds)
-        poi_span_preds = torch.where(has_poi_preds.unsqueeze(-1), poi_span_preds, negative_one)  # (B, 2)
-        street_span_preds = torch.where(
-            has_street_preds.unsqueeze(-1), street_span_preds, negative_one)  # (B, 2)
 
         # Aggregate
         poi_span_preds_all.append(poi_span_preds)
@@ -283,6 +313,11 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
     street_existence_preds_all = torch.cat(street_existence_preds_all, dim=0)  # (N,)
     if has_gt:
         street_span_gt_all = torch.cat(street_span_gt_all, dim=0)  # (N, 2)
+
+    # Post process
+    poi_span_preds_all, street_span_preds_all = post_process(
+        poi_span_preds_all, poi_existence_preds_all, street_span_preds_all, street_existence_preds_all,
+        confidence_threshold=confidence_threshold, post_processing=post_processing)
 
     # Calculate accuracy
     if has_gt:
@@ -340,7 +375,7 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
                         pred_str = "" if pred_start == - 1 else decode(input_ids[pred_start:pred_end + 1])
                     record.update({
                         f"{col_name}_gt": gt_str, f"{col_name}_pred": pred_str,
-                        f"has_{col_name}": round(conf_score.cpu().item(), 3),
+                        f"has_{col_name}": round(conf_score.cpu().item(), 6),
                     })
             else:
                 to_iterate = [
@@ -360,8 +395,13 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
 
         df = pd.DataFrame.from_records(records)
         if not has_gt:
+
+            def transform(row):
+                if row["POI"] == "" and row["street"] == "":
+                    return ""
+                return f"{row['POI']}/{row['street']}"
             # Generate to the correct format
-            df["POI/street"] = df.apply(lambda x: f"{x['POI']}/{x['street']}", axis=1)
+            df["POI/street"] = df.apply(transform, axis=1)
             df["id"] = df.index
         df.to_csv(save_csv_path, index=False)
 

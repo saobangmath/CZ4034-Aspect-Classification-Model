@@ -18,6 +18,10 @@ def main(args):
     config["load_from"] = args.load_from
     config["data_path"] = args.data_path
     config["resume_from"] = None
+    # Overwrite values
+    config["evaluation"]["post_processing"] = args.post_processing
+    if args.confidence_threshold is not None:
+        config["evaluation"]["confidence_threshold"] = args.confidence_threshold
 
     if args.save_csv_path is None:
         model_dir, _ = os.path.split(args.load_from)
@@ -47,6 +51,13 @@ def parse_arguments(argv):
         '-s', '--save-csv-path', type=str, required=False, default=None,
         help='Path to save the result csv file. If not specified, results will '
              'be saved to directory where the model was saved.')
+    parser.add_argument(
+        '-p', '--post-processing', action="store_true", default=False,
+        help='Whether to post process predictions. Overwrite `post_processing` value in the config file.')
+    parser.add_argument(
+        '-t', '--confidence_threshold', type=float, default=None,
+        help='Confidence threshold to make predictions. Predictions with score lower than this will be discarded. '
+             'Overwrite `confidence_threshold` value in the config file, if specified.')
 
     return parser.parse_args(argv)
 

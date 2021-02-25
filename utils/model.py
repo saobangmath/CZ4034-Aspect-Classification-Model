@@ -117,7 +117,7 @@ class BertForAddressExtraction(nn.Module):
         poi_span_loss = F.cross_entropy(poi_span_preds[has_poi], poi_span_gt[has_poi])
 
         # POI existence loss
-        poi_existence_loss = F.binary_cross_entropy_with_logits(poi_existence_preds, has_poi.float())
+        poi_existence_loss = F.binary_cross_entropy(poi_existence_preds, has_poi.float())
 
         # Street span loss
         street_span_gt = torch.stack([street_start, street_end], dim=-1)  # (B, 2)

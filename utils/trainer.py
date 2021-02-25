@@ -216,7 +216,7 @@ class Trainer:
         self.epoch = self.config["epoch"] = epoch
 
     def train_one_epoch(self, model, dataloader, optimizer, scheduler, num_epochs, max_grad_norm=None,
-                        debugging=False):
+                        debugging=False, post_processing=False):
         """Train the model for one epoch."""
         model.train()
         timer = Timer()
@@ -250,7 +250,8 @@ class Trainer:
                 # Calculate batch accuracy
                 acc = compute_metrics_from_inputs_and_outputs(
                     inputs=data, outputs=output, tokenizer=self.tokenizer, save_csv_path=None,
-                    confidence_threshold=self.config["evaluation"]["confidence_threshold"])
+                    confidence_threshold=self.config["evaluation"]["confidence_threshold"],
+                    post_processing=post_processing)
                 losses.update(acc)
 
                 # Update tqdm with training information
@@ -287,7 +288,8 @@ class Trainer:
         logger.info(f"{description} took {timer.get_total_time():.2f}s.")
         return
 
-    def evaluate_one_epoch(self, model, dataloader, prefix, debugging=False, save_csv_path=None):
+    def evaluate_one_epoch(self, model, dataloader, prefix, debugging=False, save_csv_path=None,
+                           post_processing=False, show_progress=False):
         """Evaluate the model for one epoch."""
         model.eval()
         tot_inp, tot_outp = [], []
@@ -312,7 +314,8 @@ class Trainer:
 
         acc = compute_metrics_from_inputs_and_outputs(
             inputs=tot_inp, outputs=tot_outp, tokenizer=self.tokenizer, save_csv_path=save_csv_path,
-            confidence_threshold=self.config["evaluation"]["confidence_threshold"])
+            confidence_threshold=self.config["evaluation"]["confidence_threshold"], post_processing=post_processing,
+            show_progress=show_progress)
 
         if acc is not None:
             self._record_metrics(acc)
@@ -338,7 +341,7 @@ class Trainer:
         self._stop = (self._no_improve > early_stopping) if early_stopping is not None else False
 
     @from_config(main_args="training", requires_all=True)
-    def _train(self, num_epochs, debugging=False, max_grad_norm=None):
+    def _train(self, num_epochs, debugging=False, max_grad_norm=None, post_processing=False):
 
         if self.load_from is not None or self.resume_from is not None:
             self.evaluate_one_epoch(
@@ -351,12 +354,12 @@ class Trainer:
 
             # Train
             self.train_one_epoch(
-                self.model, self.dataloaders["train"], self.optimizer, self.scheduler,
-                num_epochs=num_epochs, max_grad_norm=max_grad_norm, debugging=debugging)
+                self.model, self.dataloaders["train"], self.optimizer, self.scheduler, num_epochs=num_epochs,
+                max_grad_norm=max_grad_norm, debugging=debugging, post_processing=post_processing)
 
             # Evaluate
             self.evaluate_one_epoch(
-                self.model, self.dataloaders["val"], debugging=debugging,
+                self.model, self.dataloaders["val"], debugging=debugging, post_processing=post_processing,
                 prefix=f"Validation (epoch: {epoch}/{num_epochs})")
 
             # Checkpoint
@@ -375,7 +378,7 @@ class Trainer:
 
         # Test
         self.evaluate_one_epoch(
-            self.model, self.dataloaders["test"], debugging=False, prefix="Test")
+            self.model, self.dataloaders["test"], debugging=False, prefix="Test", post_processing=post_processing)
         logger.info("Training finished.")
 
     def train(self):
@@ -385,4 +388,5 @@ class Trainer:
         assert self.action == "evaluation"
         return self.evaluate_one_epoch(
             self.model, self.dataloaders["eval"], prefix="Evaluation",
+            post_processing=self.config["evaluation"]["post_processing"], show_progress=True,
             debugging=False, save_csv_path=self.config["save_csv_path"])
