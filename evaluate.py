@@ -55,7 +55,7 @@ def parse_arguments(argv):
         '-p', '--post-processing', action="store_true", default=False,
         help='Whether to post process predictions. Overwrite `post_processing` value in the config file.')
     parser.add_argument(
-        '-t', '--confidence_threshold', type=float, default=None,
+        '-t', '--confidence-threshold', type=float, default=None,
         help='Confidence threshold to make predictions. Predictions with score lower than this will be discarded. '
              'Overwrite `confidence_threshold` value in the config file, if specified.')
 
