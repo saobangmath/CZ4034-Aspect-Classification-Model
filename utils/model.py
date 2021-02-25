@@ -10,7 +10,16 @@ from transformers import (
 from .utils import from_config
 
 
-class BertForAddressExtraction(nn.Module):
+model_classes = {}
+
+
+def register_model(cls):
+    model_classes[cls.__name__] = cls
+    return cls
+
+
+@register_model
+class BertForAddressExtractionWithTwoSeparateHeads(nn.Module):
     """Bert model for for Shopee Code League 2021 - Address Elements Extraction task.
 
     Parameters
@@ -39,7 +48,7 @@ class BertForAddressExtraction(nn.Module):
     @from_config(main_args="model", requires_all=True)
     def __init__(self, model_name_or_path, config_name=None, tokenizer_name=None, cache_dir=None,
                  from_pretrained=False, freeze_base_model=False, fusion="max_pooling", lambdas=[1, 1, 1, 1]):
-        super(BertForAddressExtraction, self).__init__()
+        super(BertForAddressExtractionWithTwoSeparateHeads, self).__init__()
         # Initialize config, tokenizer and model (feature extractor)
         self.base_model_config = AutoConfig.from_pretrained(
             config_name if config_name is not None else model_name_or_path,
@@ -61,11 +70,7 @@ class BertForAddressExtraction(nn.Module):
             )
 
         # Additional layers
-        self.poi_span_classifier = nn.Linear(self.base_model_config.hidden_size, 2)
-        self.poi_existence = nn.Linear(self.base_model_config.hidden_size, 1)
-        self.street_span_classifier = nn.Linear(self.base_model_config.hidden_size, 2)
-        self.street_existence = nn.Linear(self.base_model_config.hidden_size, 1)
-        self.sigmoid = nn.Sigmoid()
+        self._initialize_layers()
 
         # Fusion
         if fusion not in ["max_pooling", "average_pooling", "sum"]:
@@ -81,8 +86,16 @@ class BertForAddressExtraction(nn.Module):
             for p in self.base_model.parameters():
                 p.requires_grad = False
 
+    def _initialize_layers(self):
+        self.poi_span_classifier = nn.Linear(self.base_model_config.hidden_size, 2)
+        self.poi_existence = nn.Linear(self.base_model_config.hidden_size, 1)
+        self.street_span_classifier = nn.Linear(self.base_model_config.hidden_size, 2)
+        self.street_existence = nn.Linear(self.base_model_config.hidden_size, 1)
+        self.sigmoid = nn.Sigmoid()
+
     def fusion_layer(self, inp, mask, dim):
-        # max pooling and sum can be hanlded easily
+        """Fuse model predictions across the sequence length dimension"""
+        # max pooling and sum can be handled easily
         if self.fusion in ["max_pooling", "sum"]:
             func = torch.max if self.fusion == "max_pooling" else torch.sum
             epsilon = torch.tensor(1e-16).to(inp)
@@ -102,6 +115,21 @@ class BertForAddressExtraction(nn.Module):
                              f"'{self.fusion}' instead.")
 
         return inp
+
+    def _get_predictions(self, hidden_states, attention_mask):
+        # POI
+        poi_span_preds = self.poi_span_classifier(hidden_states)  # (B, L, 2)
+        poi_existence_preds = self.poi_existence(hidden_states).squeeze(-1)  # (B, L)
+        poi_existence_preds = self.fusion_layer(poi_existence_preds, attention_mask, dim=1)  # (B,)
+        poi_existence_preds = self.sigmoid(poi_existence_preds)  # turn into probabilities
+
+        # Street
+        street_span_preds = self.street_span_classifier(hidden_states)  # (B, L, 2)
+        street_existence_preds = self.street_existence(hidden_states).squeeze(-1)  # (B, L)
+        street_existence_preds = self.fusion_layer(street_existence_preds, attention_mask, dim=1)  # (B,)
+        street_existence_preds = self.sigmoid(street_existence_preds)  # turn into probabilities
+
+        return poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds
 
     def _compute_losses(
         self,
@@ -172,17 +200,8 @@ class BertForAddressExtraction(nn.Module):
             input_ids=input_ids, attention_mask=attention_mask)["last_hidden_state"]  # (B, L, H)
         attention_mask = attention_mask.bool()
 
-        # POI
-        poi_span_preds = self.poi_span_classifier(hidden_states)  # (B, L, 2)
-        poi_existence_preds = self.poi_existence(hidden_states).squeeze(-1)  # (B, L)
-        poi_existence_preds = self.fusion_layer(poi_existence_preds, attention_mask, dim=1)  # (B,)
-        poi_existence_preds = self.sigmoid(poi_existence_preds)  # turn into probabilities
-
-        # Street
-        street_span_preds = self.street_span_classifier(hidden_states)  # (B, L, 2)
-        street_existence_preds = self.street_existence(hidden_states).squeeze(-1)  # (B, L)
-        street_existence_preds = self.fusion_layer(street_existence_preds, attention_mask, dim=1)  # (B,)
-        street_existence_preds = self.sigmoid(street_existence_preds)  # turn into probabilities
+        poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds = self._get_predictions(
+            hidden_states, attention_mask)
 
         # Need to mask predictions with attention mask so that padding does not affect the probabilities
         epsilon = torch.tensor(1e-16).to(poi_span_preds)
@@ -214,3 +233,28 @@ class BertForAddressExtraction(nn.Module):
             outp["losses"] = losses
 
         return outp
+
+
+@register_model
+class BertForAddressExtractionWithTwoLinkedHeads(BertForAddressExtractionWithTwoSeparateHeads):
+    def _initialize_layers(self):
+        self.poi_span_classifier = nn.Linear(self.base_model_config.hidden_size, 2)
+        self.poi_existence = nn.Linear(2, 1)
+        self.street_span_classifier = nn.Linear(self.base_model_config.hidden_size, 2)
+        self.street_existence = nn.Linear(2, 1)
+        self.sigmoid = nn.Sigmoid()
+
+    def _get_predictions(self, hidden_states, attention_mask):
+        # POI
+        poi_span_preds = self.poi_span_classifier(hidden_states)  # (B, L, 2)
+        poi_existence_preds = self.poi_existence(poi_span_preds).squeeze(-1)  # (B, L)
+        poi_existence_preds = self.fusion_layer(poi_existence_preds, attention_mask, dim=1)  # (B,)
+        poi_existence_preds = self.sigmoid(poi_existence_preds)  # turn into probabilities
+
+        # Street
+        street_span_preds = self.street_span_classifier(hidden_states)  # (B, L, 2)
+        street_existence_preds = self.street_existence(street_span_preds).squeeze(-1)  # (B, L)
+        street_existence_preds = self.fusion_layer(street_existence_preds, attention_mask, dim=1)  # (B,)
+        street_existence_preds = self.sigmoid(street_existence_preds)  # turn into probabilities
+
+        return poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds

@@ -12,7 +12,7 @@ import yaml
 from loguru import logger
 from transformers import AdamW, get_linear_schedule_with_warmup
 
-from utils.model import BertForAddressExtraction
+from utils.model import model_classes
 from utils.data import CustomDataset, DataCollatorWithPadding
 from utils.utils import (from_config, to_device, compute_metrics_from_inputs_and_outputs,
                          ConfigComparer, Timer)
@@ -97,11 +97,16 @@ class Trainer:
     def _initialize_models(self, learning_rate, weight_decay, load_from, resume_from, device):
         """Initialize models and optimizer(s), and load state dictionaries, if
         possible."""
+        # Get model class
+        model_class = self.config["model"].get("model_class", None)
+        if model_class is None:
+            model_class = "BertForAddressExtractionWithTwoSeparateHeads"  # default model class
+        model_init = model_classes[model_class]
         # Initialize backbone model
         logger.info("Initializing model...")
         from_pretrained = load_from is not None or resume_from is not None
         self.device = torch.device(device)
-        self.model = BertForAddressExtraction(self.config, from_pretrained=from_pretrained).to(self.device)
+        self.model = model_init(self.config, from_pretrained=from_pretrained).to(self.device)
         self.tokenizer = self.model.tokenizer
 
         # Initialize optimizer
