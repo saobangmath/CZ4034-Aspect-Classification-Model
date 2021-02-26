@@ -52,3 +52,5 @@ python evaluate.py \
 Notes:
 `--post-processing`: If set to True, remove predictions where one span contains the other (keep the one with higher score).
 `--confidence-threshold`: This is set to 0.51 to account for model behavior: many predictions with exactly 0.5 confidence score are incorrect.
+
+Using the baseline config, you will be able to achieve ~91% accuracy on public leaderboard.
