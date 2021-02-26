@@ -7,15 +7,15 @@ data:
             - /home/jupyter/Documents/projects/shopee_code_league_2021/data/processed/splits/fold_3.json
             - /home/jupyter/Documents/projects/shopee_code_league_2021/data/processed/splits/fold_4.json
             - /home/jupyter/Documents/projects/shopee_code_league_2021/data/processed/splits/fold_5.json
-            - /home/jupyter/Documents/projects/shopee_code_league_2021/data/processed/splits/fold_6.json
-            - /home/jupyter/Documents/projects/shopee_code_league_2021/data/processed/splits/fold_7.json
-        p_augmentation: 0.0  # probability of performing random token replacement during training
+            - /home/jupyter/Documents/projects/shopee_code_league_2021/data/processed/splits/fold_8.json
+            - /home/jupyter/Documents/projects/shopee_code_league_2021/data/processed/splits/fold_9.json
+        p_augmentation: 0.3  # probability of performing random token replacement during training
     val:
         paths:
-            - /home/jupyter/Documents/projects/shopee_code_league_2021/data/processed/splits/fold_8.json
+            - /home/jupyter/Documents/projects/shopee_code_league_2021/data/processed/splits/fold_6.json
     test:
         paths:
-            - /home/jupyter/Documents/projects/shopee_code_league_2021/data/processed/splits/fold_9.json
+            - /home/jupyter/Documents/projects/shopee_code_league_2021/data/processed/splits/fold_7.json
 
 model:
     model_name_or_path: cahya/xlm-roberta-large-indonesian-NER
@@ -26,25 +26,25 @@ model:
     sep_token: </s>  # need this to map token index. might be "</s>" or "[SEP]", depending on the tokenizer
 
     model_class: BertForAddressExtractionWithTwoLinkedHeads
-    freeze_base_model: True
+    freeze_base_model: False
     fusion: max_pooling
     lambdas: [1, 1, 1, 1]
 
 training:
     work_dir: /home/jupyter/Documents/projects/shopee_code_league_2021/work_dirs/  # set to `null` to not save anything
-    learning_rate: 1e-4
+    learning_rate: 5e-5
     weight_decay: 0.01
     lr_warmup: 0.1  # fraction of total number of iterations used to warm up training
     max_grad_norm: 1.0
 
     device: cuda
-    batch_size: 2
-    batch_size_multiplier: 1.5  # eval/train batch size ratio
+    batch_size: 32
+    batch_size_multiplier: 1.2  # eval/train batch size ratio
     num_epochs: 100
     num_workers: 8
     debugging: true  # set to 'true' to perform only 10 iterations per epoch
-    early_stopping: 3  # stop training when model is not improved over this number of epochs
+    early_stopping: 2  # stop training when model is not improved over this number of epochs
 
 evaluation:
-    confidence_threshold: 0.5  # predictions with confidence thresholds less than this will be discarded
+    confidence_threshold: 0.51  # predictions with confidence thresholds less than this will be discarded
     post_processing: true  # whether to perform post processing (recommended)
