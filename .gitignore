@@ -132,3 +132,7 @@ dmypy.json
 data/
 *.ipynb
 work_dirs/*
+
+# Not ignoring these files
+!1_EDA.ipynb
+!work_dirs/config.yaml
