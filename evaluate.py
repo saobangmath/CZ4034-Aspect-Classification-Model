@@ -9,6 +9,17 @@ from utils.trainer import Trainer
 
 DESCRIPTION = """Evaluate a BERT for address extraction model."""
 
+def check_args(args):
+    post_processing = args.post_processing
+    if not post_processing:
+        string = ("`post_processing` is set to False. This is NOT recommended. Do you want to continue (y: yes, continue, "
+                  "n: no, change `post_processing` to `True`): ")
+        choice = input(string)
+        while choice not in ["y", "c"]:
+            choice = input(string)
+        if choice == "n":
+            args.post_processing = True
+
 
 def main(args):
     with open(args.config_path, "r") as conf:
@@ -19,6 +30,7 @@ def main(args):
     config["data_path"] = args.data_path
     config["resume_from"] = None
     # Overwrite values
+    check_args(args)
     config["evaluation"]["post_processing"] = args.post_processing
     if args.confidence_threshold is not None:
         config["evaluation"]["confidence_threshold"] = args.confidence_threshold
