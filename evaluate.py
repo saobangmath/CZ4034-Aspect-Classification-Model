@@ -15,7 +15,7 @@ def check_args(args):
         string = ("`post_processing` is set to False. This is NOT recommended. Do you want to continue (y: yes, continue, "
                   "n: no, change `post_processing` to `True`): ")
         choice = input(string)
-        while choice not in ["y", "c"]:
+        while choice not in ["y", "n"]:
             choice = input(string)
         if choice == "n":
             args.post_processing = True
