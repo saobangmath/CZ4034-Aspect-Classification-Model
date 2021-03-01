@@ -11,6 +11,8 @@ PyYAML
 
 # Step-by-step to reproduce the baseline results (~91% on public leaderboard)
 
+Note: all paths (either in the jupyter notebook file, in the config file or as argument when executing commands) should be modified accordingly.
+
 ## 1. Preprocess train and test data
 
 1. First download the datasets and place it in `data/orig/` directory. Create empty directories `data/processed/` and `data/processed/splits`.
@@ -50,7 +52,7 @@ python evaluate.py \
   --confidence-threshold 0.51
 ```
 Notes:
-`--post-processing`: If set to True, remove predictions where one span contains the other (keep the one with higher score).
-`--confidence-threshold`: This is set to 0.51 to account for model behavior: many predictions with exactly 0.5 confidence score are incorrect.
+- `--post-processing`: If set to True, remove predictions where one span contains the other (keep the one with higher score).
+- `--confidence-threshold`: This is set to 0.51 to account for model behavior: many predictions with exactly 0.5 confidence score are incorrect.
 
 Using the baseline config, you will be able to achieve ~91% accuracy on public leaderboard.
