@@ -168,7 +168,7 @@ class Trainer:
                     bs = batch_size
                     p_augmentation = set_info["p_augmentation"]
                 else:
-                    shuffle = False
+                    shuffle = False if set_name == "test" else True
                     bs = round(batch_size * batch_size_multiplier)
                     p_augmentation = 0.0
 

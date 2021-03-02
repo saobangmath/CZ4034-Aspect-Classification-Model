@@ -142,14 +142,20 @@ class BertForAddressExtractionWithTwoSeparateHeads(nn.Module):
 
         # POI span loss
         poi_span_gt = torch.stack([poi_start, poi_end], dim=-1)  # (B, 2)
-        poi_span_loss = F.cross_entropy(poi_span_preds[has_poi], poi_span_gt[has_poi])
+        if has_poi.any():
+            poi_span_loss = F.cross_entropy(poi_span_preds[has_poi], poi_span_gt[has_poi])
+        else:
+            poi_span_loss = 0.0
 
         # POI existence loss
         poi_existence_loss = F.binary_cross_entropy(poi_existence_preds, has_poi.float())
 
         # Street span loss
         street_span_gt = torch.stack([street_start, street_end], dim=-1)  # (B, 2)
-        street_span_loss = F.cross_entropy(street_span_preds[has_street], street_span_gt[has_street])
+        if has_street.any():
+            street_span_loss = F.cross_entropy(street_span_preds[has_street], street_span_gt[has_street])
+        else:
+            street_span_loss = 0.0
 
         # Street existence loss
         street_existence_loss = F.binary_cross_entropy(street_existence_preds, has_street.float())
@@ -158,9 +164,7 @@ class BertForAddressExtractionWithTwoSeparateHeads(nn.Module):
         total_loss = 0
         for weight, loss in \
                 zip(self.lambdas, [poi_span_loss, poi_existence_loss, street_span_loss, street_existence_loss]):
-            # In rare cases span losses can be "nan" when there is no groundtruth
-            if not torch.isnan(loss.cpu()):
-                total_loss += weight * loss
+            total_loss += weight * loss
 
         return {"total_loss": total_loss,
                 "poi_span_loss": poi_span_loss, "poi_existence_loss": poi_existence_loss,
