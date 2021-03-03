@@ -21,6 +21,18 @@ def register_model(cls):
 @register_model
 class BertForAddressExtractionWithTwoSeparateHeads(nn.Module):
     """Bert model for for Shopee Code League 2021 - Address Elements Extraction task.
+    Model structure:
+                                            |--- span_start
+                                        |---|
+                         |---- POI -----|   |--- span_end
+                         |              |
+                         |              |--- existence
+    feature_extractor ---|
+                         |                  |--- span_start
+                         |              |---|
+                         |              |   |--- span_end
+                         |---- street --|
+                                        |--- existence
 
     Parameters
     ----------
@@ -116,7 +128,7 @@ class BertForAddressExtractionWithTwoSeparateHeads(nn.Module):
 
         return inp
 
-    def _get_predictions(self, hidden_states, attention_mask):
+    def _get_predictions(self, hidden_states, attention_mask, poi_start, street_start):
         # POI
         poi_span_preds = self.poi_span_classifier(hidden_states)  # (B, L, 2)
         poi_existence_preds = self.poi_existence(hidden_states).squeeze(-1)  # (B, L)
@@ -205,7 +217,7 @@ class BertForAddressExtractionWithTwoSeparateHeads(nn.Module):
         attention_mask = attention_mask.bool()
 
         poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds = self._get_predictions(
-            hidden_states, attention_mask)
+            hidden_states, attention_mask, poi_start, street_start)
 
         # Need to mask predictions with attention mask so that padding does not affect the probabilities
         epsilon = torch.tensor(1e-16).to(poi_span_preds)
@@ -241,6 +253,18 @@ class BertForAddressExtractionWithTwoSeparateHeads(nn.Module):
 
 @register_model
 class BertForAddressExtractionWithTwoLinkedHeads(BertForAddressExtractionWithTwoSeparateHeads):
+    """
+    Model structure:
+
+
+                                       |--- span_start ---|
+                         |---- POI ----|                  |--- existence
+                         |             |--- span_end -----|
+    feature_extractor ---|
+                         |             |--- span_start ---|
+                         |-- street ---|                  |--- existence
+                                       |--- span_end -----|
+    """
     def _initialize_layers(self):
         self.poi_span_classifier = nn.Linear(self.base_model_config.hidden_size, 2)
         self.poi_existence = nn.Linear(2, 1)
@@ -248,7 +272,7 @@ class BertForAddressExtractionWithTwoLinkedHeads(BertForAddressExtractionWithTwo
         self.street_existence = nn.Linear(2, 1)
         self.sigmoid = nn.Sigmoid()
 
-    def _get_predictions(self, hidden_states, attention_mask):
+    def _get_predictions(self, hidden_states, attention_mask, poi_start, street_start):
         # POI
         poi_span_preds = self.poi_span_classifier(hidden_states)  # (B, L, 2)
         poi_existence_preds = self.poi_existence(poi_span_preds).squeeze(-1)  # (B, L)
@@ -258,6 +282,69 @@ class BertForAddressExtractionWithTwoLinkedHeads(BertForAddressExtractionWithTwo
         # Street
         street_span_preds = self.street_span_classifier(hidden_states)  # (B, L, 2)
         street_existence_preds = self.street_existence(street_span_preds).squeeze(-1)  # (B, L)
+        street_existence_preds = self.fusion_layer(street_existence_preds, attention_mask, dim=1)  # (B,)
+        street_existence_preds = self.sigmoid(street_existence_preds)  # turn into probabilities
+
+        return poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds
+
+
+@register_model
+class BertForAddressExtractionWithTwoDependentHeads(BertForAddressExtractionWithTwoSeparateHeads):
+    """
+    Model structure:
+
+                                        |--- span_start --- span_end
+                         |---- POI -----|
+                         |              |--- existence
+    feature_extractor ---|
+                         |              |--- span_start --- span_end
+                         |---- street --|
+                                        |--- existence
+
+    where each span_end prediction is conditioned on the corresponding span_start prediction.
+    """
+    def _initialize_layers(self):
+        self.poi_span_start_classifier = nn.Linear(self.base_model_config.hidden_size, 1)
+        self.poi_existence = nn.Linear(self.base_model_config.hidden_size, 1)
+        self.street_span_start_classifier = nn.Linear(self.base_model_config.hidden_size, 1)
+        self.street_existence = nn.Linear(self.base_model_config.hidden_size, 1)
+        self.sigmoid = nn.Sigmoid()
+
+    def _get_predictions(self, hidden_states, attention_mask, poi_start, street_start):
+        # hidden_state: (B, L, H), where H is hidden size.
+        # poi_start, poi_end: (B,)
+
+        # POI
+        poi_span_start_preds = self.poi_span_start_classifier(hidden_states).squeeze(-1)  # (B, L)
+        poi_span_start_preds_idxs = poi_span_start_preds.argmax(-1)  # (B,)
+        if self.training:
+            poi_span_start_preds_idxs = poi_start  # (B,)
+        # For each training example, take the hidden state of the span start prediction.
+        poi_span_start_preds_states = hidden_states[
+            list(range(len(hidden_states))),
+            poi_span_start_preds_idxs]  # (B, H)
+        poi_span_end_preds = torch.matmul(
+            hidden_states, poi_span_start_preds_states.unsqueeze(-1)).squeeze(-1)  # (B, L)
+        poi_span_preds = torch.stack([poi_span_start_preds, poi_span_end_preds], dim=-1)  # (B, L, 2)
+
+        poi_existence_preds = self.poi_existence(hidden_states).squeeze(-1)  # (B, L)
+        poi_existence_preds = self.fusion_layer(poi_existence_preds, attention_mask, dim=1)  # (B,)
+        poi_existence_preds = self.sigmoid(poi_existence_preds)  # turn into probabilities
+
+        # Street
+        street_span_start_preds = self.street_span_start_classifier(hidden_states).squeeze(-1)  # (B, L)
+        street_span_start_preds_idxs = street_span_start_preds.argmax(-1)  # (B,)
+        if self.training:
+            street_span_start_preds_idxs = street_start  # (B,)
+        # For each training example, take the hidden state of the span start prediction.
+        street_span_start_preds_states = hidden_states[
+            list(range(len(hidden_states))),
+            street_span_start_preds_idxs]  # (B, H)
+        street_span_end_preds = torch.matmul(
+            hidden_states, street_span_start_preds_states.unsqueeze(-1)).squeeze(-1)  # (B, L)
+        street_span_preds = torch.stack([street_span_start_preds, street_span_end_preds], dim=-1)  # (B, L, 2)
+
+        street_existence_preds = self.street_existence(hidden_states).squeeze(-1)  # (B, L)
         street_existence_preds = self.fusion_layer(street_existence_preds, attention_mask, dim=1)  # (B,)
         street_existence_preds = self.sigmoid(street_existence_preds)  # turn into probabilities
 
