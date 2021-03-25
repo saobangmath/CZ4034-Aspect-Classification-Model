@@ -100,7 +100,7 @@ class Trainer:
         # Get model class
         model_class = self.config["model"].get("model_class", None)
         if model_class is None:
-            model_class = "BertForAddressExtractionWithTwoSeparateHeads"  # default model class
+            model_class = "BertForReviewAspectClassification"  # default model class
         model_init = model_classes[model_class]
         # Initialize backbone model
         logger.info("Initializing model...")
@@ -166,15 +166,13 @@ class Trainer:
                 if set_name == "train":
                     shuffle = True
                     bs = batch_size
-                    p_augmentation = set_info["p_augmentation"]
                 else:
                     shuffle = False if set_name == "test" else True
                     bs = round(batch_size * batch_size_multiplier)
-                    p_augmentation = 0.0
 
                 dataset = CustomDataset(
                     self.config, tokenizer=self.tokenizer,
-                    paths=set_info["paths"], p_augmentation=p_augmentation)
+                    paths=set_info["paths"])
                 self.dataloaders[set_name] = DataLoader(
                     dataset, batch_size=bs, shuffle=shuffle,
                     collate_fn=collate_fn, num_workers=num_workers)
@@ -188,7 +186,7 @@ class Trainer:
             else:
                 data_path = self.config["data_path"]
             dataset = CustomDataset(
-                self.config, tokenizer=self.tokenizer, paths=data_path, p_augmentation=0.0)
+                self.config, tokenizer=self.tokenizer, paths=data_path)
             self.dataloaders["eval"] = DataLoader(
                 dataset, batch_size=round(batch_size * batch_size_multiplier),
                 shuffle=False, collate_fn=collate_fn, num_workers=num_workers)
@@ -227,11 +225,14 @@ class Trainer:
         timer = Timer()
 
         print(
-            ("{:25}" + "|" + "{:^45}" + "|" + "{:^45}" + "|").format("", "POI", "street")
+            ("{:25}" + "|" + "{:^45}" + "|" + "{:^45}" + "|" + "{:^45}" + "|").format("", "food", "service", "price")
         )
         print(
-            ("{:25}" + "|" + "{:^15}" * 3 + "|" + "{:^15}" * 3 + "|").format(
-                "", "span_loss", "existence_loss", "acc", "span_loss", "existence_loss", "acc")
+            ("{:25}" + "|" + "{:^15}" * 3 + "|" + "{:^15}" * 3 + "|" + "{:^15}" * 3 + "|").format(
+                "",
+                "mse_loss", "existence_loss", "acc",
+                "mse_loss", "existence_loss", "acc",
+                "mse_loss", "existence_loss", "acc")
         )
 
         total = 10 if debugging else len(dataloader)
@@ -249,7 +250,7 @@ class Trainer:
                 optimizer.zero_grad()
 
                 # Forward
-                output = model(**data)
+                output = model(**data, is_training=True)
                 losses = output["losses"]
 
                 # Calculate batch accuracy
@@ -261,8 +262,8 @@ class Trainer:
 
                 # Update tqdm with training information
                 to_tqdm = []  # update tqdm
-                for name in ["poi", "street"]:
-                    for loss_type in ["span_loss", "existence_loss", "acc"]:
+                for name in ["food", "service", "price"]:
+                    for loss_type in ["score_loss", "existence_loss", "acc"]:
                         n = f"{name}_{loss_type}"
                         loss_n = losses[n]
 
@@ -272,7 +273,7 @@ class Trainer:
                             to_tqdm.append(f"{loss_n.item():.3f}")
 
                 des = (
-                    "{:25}" + "|" + "{:^15}" * 3 + "|" + "{:^15}" * 3 + "|"
+                    "{:25}" + "|" + "{:^15}" * 3 + "|" + "{:^15}" * 3 + "|" + "{:^15}" * 3 + "|"
                 ).format(description, *to_tqdm)
                 t.set_description(des)
 
@@ -310,7 +311,7 @@ class Trainer:
                     tot_inp.append(data)
 
                     # Forward
-                    output = model(**data)
+                    output = model(**data, is_training=False)
                     tot_outp.append(output)
 
                     # Break when reaching 10 iterations when debugging

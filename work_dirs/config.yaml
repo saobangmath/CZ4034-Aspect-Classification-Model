@@ -1,21 +1,14 @@
 data:
     train:
         paths:
-            - data/processed/splits/fold_0.json
-            - data/processed/splits/fold_1.json
-            - data/processed/splits/fold_2.json
-            - data/processed/splits/fold_3.json
-            - data/processed/splits/fold_4.json
-            - data/processed/splits/fold_5.json
-            - data/processed/splits/fold_8.json
-            - data/processed/splits/fold_9.json
+            - data/RestaurantReviews.csv
         p_augmentation: 0.3  # probability of performing random token replacement during training
     val:
         paths:
-            - data/processed/splits/fold_6.json
+            - data/RestaurantReviews.csv
     test:
         paths:
-            - data/processed/splits/fold_7.json
+            - data/RestaurantReviews.csv
 
 model:
     model_name_or_path: cahya/xlm-roberta-large-indonesian-NER
@@ -37,7 +30,7 @@ training:
     lr_warmup: 0.1  # fraction of total number of iterations used to warm up training
     max_grad_norm: 1.0
 
-    device: cuda
+    device: cpu
     batch_size: 32
     batch_size_multiplier: 1.2  # eval/train batch size ratio
     num_epochs: 100

@@ -19,21 +19,20 @@ def register_model(cls):
 
 
 @register_model
-class BertForAddressExtractionWithTwoSeparateHeads(nn.Module):
-    """Bert model for for Shopee Code League 2021 - Address Elements Extraction task.
+class BertForReviewAspectClassification(nn.Module):
+    """Bert model for CZ4034 - Food, money and service extraction task
     Model structure:
-                                            |--- span_start
-                                        |---|
-                         |---- POI -----|   |--- span_end
-                         |              |
+                                        |--- foodScore
+                         |---- Food ----|
                          |              |--- existence
-    feature_extractor ---|
-                         |                  |--- span_start
-                         |              |---|
-                         |              |   |--- span_end
-                         |---- street --|
-                                        |--- existence
-
+                         |
+    feature_extractor ---|              |--- moneyScore
+                         |---- Money ---|
+                         |              |--- existence
+                         |
+                         |              |--- serviceScore
+                         |--- Service --|
+                         |              |--- existence
     Parameters
     ----------
     model_name_or_path : str
@@ -59,8 +58,8 @@ class BertForAddressExtractionWithTwoSeparateHeads(nn.Module):
     """
     @from_config(main_args="model", requires_all=True)
     def __init__(self, model_name_or_path, config_name=None, tokenizer_name=None, cache_dir=None,
-                 from_pretrained=False, freeze_base_model=False, fusion="max_pooling", lambdas=[1, 1, 1, 1]):
-        super(BertForAddressExtractionWithTwoSeparateHeads, self).__init__()
+                 from_pretrained=False, freeze_base_model=False, fusion="max_pooling", lambdas=[1, 1, 1, 1, 1, 1]):
+        super(BertForReviewAspectClassification, self).__init__()
         # Initialize config, tokenizer and model (feature extractor)
         self.base_model_config = AutoConfig.from_pretrained(
             config_name if config_name is not None else model_name_or_path,
@@ -90,7 +89,7 @@ class BertForAddressExtractionWithTwoSeparateHeads(nn.Module):
                              f"'{fusion}' instead.")
         self.fusion = fusion
 
-        assert len(lambdas) == 4
+        assert len(lambdas) == 6
         self.lambdas = lambdas
 
         # Freeze
@@ -99,10 +98,12 @@ class BertForAddressExtractionWithTwoSeparateHeads(nn.Module):
                 p.requires_grad = False
 
     def _initialize_layers(self):
-        self.poi_span_classifier = nn.Linear(self.base_model_config.hidden_size, 2)
-        self.poi_existence = nn.Linear(self.base_model_config.hidden_size, 1)
-        self.street_span_classifier = nn.Linear(self.base_model_config.hidden_size, 2)
-        self.street_existence = nn.Linear(self.base_model_config.hidden_size, 1)
+        self.food_score = nn.Linear(self.base_model_config.hidden_size, 1)
+        self.food_existence = nn.Linear(self.base_model_config.hidden_size, 1)
+        self.service_score = nn.Linear(self.base_model_config.hidden_size, 1)
+        self.service_existence = nn.Linear(self.base_model_config.hidden_size, 1)
+        self.price_score = nn.Linear(self.base_model_config.hidden_size, 1)
+        self.price_existence = nn.Linear(self.base_model_config.hidden_size, 1)
         self.sigmoid = nn.Sigmoid()
 
     def fusion_layer(self, inp, mask, dim):
@@ -128,62 +129,90 @@ class BertForAddressExtractionWithTwoSeparateHeads(nn.Module):
 
         return inp
 
-    def _get_predictions(self, hidden_states, attention_mask, poi_start, street_start):
-        # POI
-        poi_span_preds = self.poi_span_classifier(hidden_states)  # (B, L, 2)
-        poi_existence_preds = self.poi_existence(hidden_states).squeeze(-1)  # (B, L)
-        poi_existence_preds = self.fusion_layer(poi_existence_preds, attention_mask, dim=1)  # (B,)
-        poi_existence_preds = self.sigmoid(poi_existence_preds)  # turn into probabilities
+    def _get_predictions(self, hidden_states, attention_mask):
+        hidden_states = self.fusion_layer(hidden_states, attention_mask, 1) # (B, H)
 
-        # Street
-        street_span_preds = self.street_span_classifier(hidden_states)  # (B, L, 2)
-        street_existence_preds = self.street_existence(hidden_states).squeeze(-1)  # (B, L)
-        street_existence_preds = self.fusion_layer(street_existence_preds, attention_mask, dim=1)  # (B,)
-        street_existence_preds = self.sigmoid(street_existence_preds)  # turn into probabilities
+        # Food
+        food_score_preds = self.food_score(hidden_states).squeeze(-1)  # (B)
+        food_existence_preds = self.food_existence(hidden_states).squeeze(-1)  # (B)
+        food_score_preds = self.sigmoid(food_score_preds)
+        food_existence_preds = self.sigmoid(food_existence_preds)
 
-        return poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds
+        # Service
+        service_score_preds = self.service_score(hidden_states).squeeze(-1)  # (B)
+        service_existence_preds = self.service_existence(hidden_states).squeeze(-1)  # (B)
+        service_score_preds = self.sigmoid(service_score_preds)
+        service_existence_preds = self.sigmoid(service_existence_preds)
+
+        # Price
+        price_score_preds = self.price_score(hidden_states).squeeze(-1)  # (B)
+        price_existence_preds = self.price_existence(hidden_states).squeeze(-1)  # (B)
+        price_score_preds = self.sigmoid(price_score_preds)
+        price_existence_preds = self.sigmoid(price_existence_preds)
+
+        return food_score_preds, food_existence_preds, \
+               service_score_preds, service_existence_preds, \
+               price_score_preds, price_existence_preds
 
     def _compute_losses(
         self,
         # Predictions
-        poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds,
+        food_score_preds, food_existence_preds,
+        service_score_preds, service_existence_preds,
+        price_score_preds, price_existence_preds,
         # Groundtruths
-        poi_start, poi_end, has_poi, street_start, street_end, has_street,
+        food_score_label, food_existence_label,
+        service_score_label, service_existence_label,
+        price_score_label, price_existence_label,
     ):
         """Compute losses (including total loss) given loss weights"""
 
-        # POI span loss
-        poi_span_gt = torch.stack([poi_start, poi_end], dim=-1)  # (B, 2)
-        if has_poi.any():
-            poi_span_loss = F.cross_entropy(poi_span_preds[has_poi], poi_span_gt[has_poi])
+        # food_score loss
+        if food_existence_label.any():
+            food_score_loss = F.mse_loss(food_score_preds[food_existence_label],
+                                         food_score_label[food_existence_label])
         else:
-            poi_span_loss = 0.0
+            food_score_loss = 0.0
 
-        # POI existence loss
-        poi_existence_loss = F.binary_cross_entropy(poi_existence_preds, has_poi.float())
+        # food existence loss
+        food_existence_loss = F.binary_cross_entropy(food_existence_preds, food_existence_label.float())
 
-        # Street span loss
-        street_span_gt = torch.stack([street_start, street_end], dim=-1)  # (B, 2)
-        if has_street.any():
-            street_span_loss = F.cross_entropy(street_span_preds[has_street], street_span_gt[has_street])
+        # service_score loss
+        if service_existence_label.any():
+            service_score_loss = F.mse_loss(service_score_preds[service_existence_label],
+                                            service_score_label[service_existence_label])
         else:
-            street_span_loss = 0.0
+            service_score_loss = 0.0
 
-        # Street existence loss
-        street_existence_loss = F.binary_cross_entropy(street_existence_preds, has_street.float())
+        # service existence loss
+        service_existence_loss = F.binary_cross_entropy(service_existence_preds, service_existence_label.float())
+
+        # price_score loss
+        if price_existence_label.any():
+            price_score_loss = F.mse_loss(price_score_preds[price_existence_label],
+                                          price_score_label[price_existence_label])
+        else:
+            price_score_loss = 0.0
+
+        # price existence loss
+        price_existence_loss = F.binary_cross_entropy(price_existence_preds, price_existence_label.float())
 
         # Total loss
         total_loss = 0
         for weight, loss in \
-                zip(self.lambdas, [poi_span_loss, poi_existence_loss, street_span_loss, street_existence_loss]):
+                zip(self.lambdas, [food_score_loss, food_existence_loss,
+                                   service_score_loss, service_existence_loss,
+                                   price_score_loss, price_existence_loss]):
             total_loss += weight * loss
 
         return {"total_loss": total_loss,
-                "poi_span_loss": poi_span_loss, "poi_existence_loss": poi_existence_loss,
-                "street_span_loss": street_span_loss, "street_existence_loss": street_existence_loss}
+                "food_score_loss": food_score_loss, "food_existence_loss": food_existence_loss,
+                "service_score_loss": service_score_loss, "service_existence_loss": service_existence_loss,
+                "price_score_loss": price_score_loss, "price_existence_loss": price_existence_loss
+                }
 
-    def forward(self, input_ids, attention_mask=None, poi_start=None, poi_end=None, street_start=None, street_end=None,
-                has_poi=None, has_street=None, **kwargs):
+    def forward(self, input_ids, attention_mask=None, food_score_label=None, service_score_label=None,
+                price_score_label=None, is_training=True, **kwargs):
         """Forward logic.
 
         input_ids : torch.Tensor
@@ -216,136 +245,38 @@ class BertForAddressExtractionWithTwoSeparateHeads(nn.Module):
             input_ids=input_ids, attention_mask=attention_mask)["last_hidden_state"]  # (B, L, H)
         attention_mask = attention_mask.bool()
 
-        poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds = self._get_predictions(
-            hidden_states, attention_mask, poi_start, street_start)
+        # Calculate existence
+        food_existence_label = (food_score_label != 0).int()
+        service_existence_label = (service_score_label != 0).int()
+        price_existence_label = (price_score_label != 0).int()
 
-        # Need to mask predictions with attention mask so that padding does not affect the probabilities
-        epsilon = torch.tensor(1e-16).to(poi_span_preds)
-        poi_span_preds = torch.where(attention_mask.unsqueeze(-1), poi_span_preds, epsilon)  # (B, L, 2)
-        street_span_preds = torch.where(attention_mask.unsqueeze(-1), street_span_preds, epsilon)  # (B, L, 2)
+        food_score_preds, food_existence_preds, \
+            service_score_preds, service_existence_preds, \
+            price_score_preds, price_existence_preds = \
+            self._get_predictions(hidden_states, attention_mask)
 
-        outp = {"poi_span_preds": poi_span_preds,  # (B, L, 2)
-                "poi_existence_preds": poi_existence_preds,  # (B,)
-                "street_span_preds": street_span_preds,  # (B, L, 2)
-                "street_existence_preds": street_existence_preds,  # (B,)
+        outp = {"food_score_preds" : food_score_preds,
+                "food_existence_preds": food_existence_preds,
+                "service_score_preds": service_score_preds,
+                "service_existence_preds": service_existence_preds,
+                "price_score_preds": price_score_preds,
+                "price_existence_preds": price_existence_preds,
                 "attention_mask": attention_mask,  # (B, L)
                 }
 
         # Get loss if training (i.e., some tensors are not provided)
-        if poi_start is not None:
-            # Get mask
-            if has_poi is None:
-                has_poi = (poi_start != -1)
-            if has_street is None:
-                has_street = (street_start != -1)
-
+        if is_training:
             # Compute loss
             losses = self._compute_losses(
                 # Predictions
-                poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds,
+                food_score_preds, food_existence_preds,
+                service_score_preds, service_existence_preds,
+                price_score_preds, price_existence_preds,
                 # Groundtruths
-                poi_start, poi_end, has_poi, street_start, street_end, has_street
+                food_score_label, food_existence_label,
+                service_score_label, service_existence_label,
+                price_score_label, price_existence_label,
             )
             outp["losses"] = losses
 
         return outp
-
-
-@register_model
-class BertForAddressExtractionWithTwoLinkedHeads(BertForAddressExtractionWithTwoSeparateHeads):
-    """
-    Model structure:
-
-
-                                       |--- span_start ---|
-                         |---- POI ----|                  |--- existence
-                         |             |--- span_end -----|
-    feature_extractor ---|
-                         |             |--- span_start ---|
-                         |-- street ---|                  |--- existence
-                                       |--- span_end -----|
-    """
-    def _initialize_layers(self):
-        self.poi_span_classifier = nn.Linear(self.base_model_config.hidden_size, 2)
-        self.poi_existence = nn.Linear(2, 1)
-        self.street_span_classifier = nn.Linear(self.base_model_config.hidden_size, 2)
-        self.street_existence = nn.Linear(2, 1)
-        self.sigmoid = nn.Sigmoid()
-
-    def _get_predictions(self, hidden_states, attention_mask, poi_start, street_start):
-        # POI
-        poi_span_preds = self.poi_span_classifier(hidden_states)  # (B, L, 2)
-        poi_existence_preds = self.poi_existence(poi_span_preds).squeeze(-1)  # (B, L)
-        poi_existence_preds = self.fusion_layer(poi_existence_preds, attention_mask, dim=1)  # (B,)
-        poi_existence_preds = self.sigmoid(poi_existence_preds)  # turn into probabilities
-
-        # Street
-        street_span_preds = self.street_span_classifier(hidden_states)  # (B, L, 2)
-        street_existence_preds = self.street_existence(street_span_preds).squeeze(-1)  # (B, L)
-        street_existence_preds = self.fusion_layer(street_existence_preds, attention_mask, dim=1)  # (B,)
-        street_existence_preds = self.sigmoid(street_existence_preds)  # turn into probabilities
-
-        return poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds
-
-
-@register_model
-class BertForAddressExtractionWithTwoDependentHeads(BertForAddressExtractionWithTwoSeparateHeads):
-    """
-    Model structure:
-
-                                        |--- span_start --- span_end
-                         |---- POI -----|
-                         |              |--- existence
-    feature_extractor ---|
-                         |              |--- span_start --- span_end
-                         |---- street --|
-                                        |--- existence
-
-    where each span_end prediction is conditioned on the corresponding span_start prediction.
-    """
-    def _initialize_layers(self):
-        self.poi_span_start_classifier = nn.Linear(self.base_model_config.hidden_size, 1)
-        self.poi_existence = nn.Linear(self.base_model_config.hidden_size, 1)
-        self.street_span_start_classifier = nn.Linear(self.base_model_config.hidden_size, 1)
-        self.street_existence = nn.Linear(self.base_model_config.hidden_size, 1)
-        self.sigmoid = nn.Sigmoid()
-
-    def _get_predictions(self, hidden_states, attention_mask, poi_start, street_start):
-        # hidden_state: (B, L, H), where H is hidden size.
-        # poi_start, poi_end: (B,)
-
-        # POI
-        poi_span_start_preds = self.poi_span_start_classifier(hidden_states).squeeze(-1)  # (B, L)
-        poi_span_start_preds_idxs = poi_span_start_preds.argmax(-1)  # (B,)
-        if self.training:
-            poi_span_start_preds_idxs = poi_start  # (B,)
-        # For each training example, take the hidden state of the span start prediction.
-        poi_span_start_preds_states = hidden_states[
-            list(range(len(hidden_states))),
-            poi_span_start_preds_idxs]  # (B, H)
-        poi_span_end_preds = torch.matmul(
-            hidden_states, poi_span_start_preds_states.unsqueeze(-1)).squeeze(-1)  # (B, L)
-        poi_span_preds = torch.stack([poi_span_start_preds, poi_span_end_preds], dim=-1)  # (B, L, 2)
-
-        poi_existence_preds = self.poi_existence(hidden_states).squeeze(-1)  # (B, L)
-        poi_existence_preds = self.fusion_layer(poi_existence_preds, attention_mask, dim=1)  # (B,)
-        poi_existence_preds = self.sigmoid(poi_existence_preds)  # turn into probabilities
-
-        # Street
-        street_span_start_preds = self.street_span_start_classifier(hidden_states).squeeze(-1)  # (B, L)
-        street_span_start_preds_idxs = street_span_start_preds.argmax(-1)  # (B,)
-        if self.training:
-            street_span_start_preds_idxs = street_start  # (B,)
-        # For each training example, take the hidden state of the span start prediction.
-        street_span_start_preds_states = hidden_states[
-            list(range(len(hidden_states))),
-            street_span_start_preds_idxs]  # (B, H)
-        street_span_end_preds = torch.matmul(
-            hidden_states, street_span_start_preds_states.unsqueeze(-1)).squeeze(-1)  # (B, L)
-        street_span_preds = torch.stack([street_span_start_preds, street_span_end_preds], dim=-1)  # (B, L, 2)
-
-        street_existence_preds = self.street_existence(hidden_states).squeeze(-1)  # (B, L)
-        street_existence_preds = self.fusion_layer(street_existence_preds, attention_mask, dim=1)  # (B,)
-        street_existence_preds = self.sigmoid(street_existence_preds)  # turn into probabilities
-
-        return poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds
