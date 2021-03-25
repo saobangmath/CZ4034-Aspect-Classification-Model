@@ -255,7 +255,7 @@ class Trainer:
 
                 # Calculate batch accuracy
                 acc = compute_metrics_from_inputs_and_outputs(
-                    inputs=data, outputs=output,
+                    inputs=data, outputs=output, output_acc=True,
                     confidence_threshold=self.config["evaluation"]["confidence_threshold"])
                 losses.update(acc)
 
@@ -266,7 +266,7 @@ class Trainer:
                         n = f"{name}_{loss_type}"
                         loss_n = losses[n]
 
-                        if torch.isnan(loss_n):
+                        if (not isinstance(loss_n, torch.Tensor)) or torch.isnan(loss_n):
                             to_tqdm.append("nan")
                         else:
                             to_tqdm.append(f"{loss_n.item():.3f}")
@@ -317,7 +317,7 @@ class Trainer:
                         break
 
         acc = compute_metrics_from_inputs_and_outputs(
-            inputs=tot_inp, outputs=tot_outp, show_progress=show_progress,
+            inputs=tot_inp, outputs=tot_outp, show_progress=show_progress, output_acc=True,
             confidence_threshold=self.config["evaluation"]["confidence_threshold"])
 
         if acc is not None:
@@ -391,4 +391,3 @@ class Trainer:
         assert self.action == "evaluation"
         return self.evaluate_one_epoch(
             self.model, self.dataloaders["eval"], prefix="Evaluation", show_progress=True, debugging=False)
-

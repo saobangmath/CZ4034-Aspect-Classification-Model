@@ -252,19 +252,19 @@ def post_process(poi_span_preds, poi_existence_preds, street_span_preds, street_
     return poi_span_preds, street_span_preds
 
 
-def compute_metrics_from_inputs_and_outputs(inputs, outputs, confidence_threshold=0.5, show_progress=False):
+def compute_metrics_from_inputs_and_outputs(inputs, outputs, confidence_threshold=0.5, show_progress=False,
+                                            output_acc=True):
     if isinstance(inputs, dict):
         inputs = [inputs]
     if isinstance(outputs, dict):
         outputs = [outputs]
 
     input_ids_all = []
-    is_training = "is_training" in inputs[0]
 
     food_score_preds_all, food_existence_preds_all = [], []
     service_score_preds_all, service_existence_preds_all = [], []
     price_score_preds_all, price_existence_preds_all = [], []
-    if is_training:
+    if output_acc:
         food_score_label_all, service_score_label_all, price_score_label_all = [], [], []
 
     if show_progress:
@@ -277,7 +277,7 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, confidence_threshol
         input_ids_all.append(input_ids)
 
         # Groundtruths
-        if is_training:
+        if output_acc:
             food_score_label = inputs_i["food_score_label"]
             service_score_label = inputs_i["service_score_label"]
             price_score_label = inputs_i["price_score_label"]
@@ -295,7 +295,7 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, confidence_threshol
         price_score_preds_all.append(price_score_preds)
         price_existence_preds_all.append(price_existence_preds)
 
-        if is_training:
+        if output_acc:
             food_score_label_all.append(food_score_label)
             service_score_label_all.append(service_score_label)
             price_score_label_all.append(price_score_label)
@@ -307,13 +307,13 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, confidence_threshol
     service_existence_preds_all = torch.cat(service_existence_preds_all, dim=0)
     price_score_preds_all = torch.cat(price_score_preds_all, dim=0)
     price_existence_preds_all = torch.cat(price_existence_preds_all, dim=0)
-    if is_training:
+    if output_acc:
         food_score_label_all = torch.cat(food_score_label_all, dim=0)
         service_score_label_all = torch.cat(service_score_label_all, dim=0)
         price_score_label_all = torch.cat(price_score_label_all, dim=0)
 
     # Calculate accuracy
-    if is_training:
+    if output_acc:
         # Get predictions
         food_score_preds_all = food_score_preds_all.int()
         food_existence_mask = (food_existence_preds_all > confidence_threshold)

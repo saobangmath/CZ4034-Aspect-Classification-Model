@@ -115,7 +115,7 @@ class BertForReviewAspectClassification(nn.Module):
         if self.fusion in ["max_pooling", "sum"]:
             func = torch.max if self.fusion == "max_pooling" else torch.sum
             epsilon = torch.tensor(1e-16).to(inp)
-            inp = torch.where(mask, inp, epsilon)
+            inp = torch.where(mask.unsqueeze(-1), inp, epsilon)
             inp = func(inp, dim=dim)
             if not isinstance(inp, torch.Tensor):
                 inp = inp[0]
@@ -173,7 +173,7 @@ class BertForReviewAspectClassification(nn.Module):
         # food_score loss
         if food_existence_label.any():
             food_score_loss = F.mse_loss(food_score_preds[food_existence_label],
-                                         food_score_label[food_existence_label])
+                                         food_score_label[food_existence_label].float())
         else:
             food_score_loss = 0.0
 
@@ -183,7 +183,7 @@ class BertForReviewAspectClassification(nn.Module):
         # service_score loss
         if service_existence_label.any():
             service_score_loss = F.mse_loss(service_score_preds[service_existence_label],
-                                            service_score_label[service_existence_label])
+                                            service_score_label[service_existence_label].float())
         else:
             service_score_loss = 0.0
 
@@ -193,7 +193,7 @@ class BertForReviewAspectClassification(nn.Module):
         # price_score loss
         if price_existence_label.any():
             price_score_loss = F.mse_loss(price_score_preds[price_existence_label],
-                                          price_score_label[price_existence_label])
+                                          price_score_label[price_existence_label].float())
         else:
             price_score_loss = 0.0
 
@@ -249,16 +249,16 @@ class BertForReviewAspectClassification(nn.Module):
         attention_mask = attention_mask.bool()
 
         # Calculate existence
-        food_existence_label = (food_score_label != 0).int()
-        service_existence_label = (service_score_label != 0).int()
-        price_existence_label = (price_score_label != 0).int()
+        food_existence_label = (food_score_label != 0).bool()
+        service_existence_label = (service_score_label != 0).bool()
+        price_existence_label = (price_score_label != 0).bool()
 
         food_score_preds, food_existence_preds, \
             service_score_preds, service_existence_preds, \
             price_score_preds, price_existence_preds = \
             self._get_predictions(hidden_states, attention_mask)
 
-        outp = {"food_score_preds" : food_score_preds,
+        outp = {"food_score_preds": food_score_preds,
                 "food_existence_preds": food_existence_preds,
                 "service_score_preds": service_score_preds,
                 "service_existence_preds": service_existence_preds,

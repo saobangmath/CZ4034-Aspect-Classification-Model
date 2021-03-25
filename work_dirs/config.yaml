@@ -19,7 +19,7 @@ model:
     sep_token: [CLS]  # need this to map token index. might be "</s>" or "[SEP]", depending on the tokenizer
 
     model_class: BertForReviewAspectClassification
-    freeze_base_model: true
+    freeze_base_model: false
     fusion: max_pooling
     lambdas: [1, 1, 1, 1, 1, 1]
     mean: 0.5
@@ -32,12 +32,12 @@ training:
     lr_warmup: 0.1  # fraction of total number of iterations used to warm up training
     max_grad_norm: 1.0
 
-    device: cpu
-    batch_size: 8
-    batch_size_multiplier: 1.2  # eval/train batch size ratio
+    device: cuda
+    batch_size: 6
+    batch_size_multiplier: 1.5  # eval/train batch size ratio
     num_epochs: 100
     num_workers: 2
-    debugging: true  # set to 'true' to perform only 10 iterations per epoch
+    debugging: false  # set to 'true' to perform only 10 iterations per epoch
     early_stopping: 2  # stop training when model is not improved over this number of epochs
 
 evaluation:

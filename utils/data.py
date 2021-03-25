@@ -28,8 +28,8 @@ class CustomDataset(Dataset):
         super(CustomDataset, self).__init__()
 
         self.tokenizer = tokenizer
-        self._cls_idx = tokenizer.convert_tokens_to_ids(cls_token)
-        self._sep_idx = tokenizer.convert_tokens_to_ids(sep_token)
+        self._cls_idx = tokenizer.convert_tokens_to_ids(cls_token)[0]
+        self._sep_idx = tokenizer.convert_tokens_to_ids(sep_token)[0]
 
         # Read input
         if isinstance(paths, str):
@@ -40,6 +40,7 @@ class CustomDataset(Dataset):
             df = pd.read_csv(path)
             dfs.append(df)
         self.df = pd.concat(dfs, ignore_index=True).reset_index(drop=True)
+        self.df = self.df.dropna(subset=["Review"])
 
     def __len__(self):
         return len(self.df)
@@ -52,7 +53,8 @@ class CustomDataset(Dataset):
 
         # Tokens
         tokens = self.tokenizer.tokenize(info["Review"])
-        token_idxs = [self._cls_idx] + self.tokenizer.convert_tokens_to_ids(tokens) + [self._sep_idx]
+        token_idxs = self.tokenizer.convert_tokens_to_ids(tokens)[:self.tokenizer.model_max_length - 2]
+        token_idxs = [self._cls_idx] + token_idxs + [self._sep_idx]
         food, service, price = data_info[["Food", "Service", "Price"]]
 
         return {
