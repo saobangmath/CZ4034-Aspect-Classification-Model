@@ -58,7 +58,8 @@ class BertForReviewAspectClassification(nn.Module):
     """
     @from_config(main_args="model", requires_all=True)
     def __init__(self, model_name_or_path, config_name=None, tokenizer_name=None, cache_dir=None,
-                 from_pretrained=False, freeze_base_model=False, fusion="max_pooling", lambdas=[1, 1, 1, 1, 1, 1]):
+                 from_pretrained=False, freeze_base_model=False, fusion="max_pooling", lambdas=[1, 1, 1, 1, 1, 1],
+                 mean=0.5, std=3):
         super(BertForReviewAspectClassification, self).__init__()
         # Initialize config, tokenizer and model (feature extractor)
         self.base_model_config = AutoConfig.from_pretrained(
@@ -81,6 +82,8 @@ class BertForReviewAspectClassification(nn.Module):
             )
 
         # Additional layers
+        self.mean = mean
+        self.std = std
         self._initialize_layers()
 
         # Fusion
@@ -135,19 +138,19 @@ class BertForReviewAspectClassification(nn.Module):
         # Food
         food_score_preds = self.food_score(hidden_states).squeeze(-1)  # (B)
         food_existence_preds = self.food_existence(hidden_states).squeeze(-1)  # (B)
-        food_score_preds = self.sigmoid(food_score_preds)
+        food_score_preds = self.sigmoid(food_score_preds) * self.std + self.mean
         food_existence_preds = self.sigmoid(food_existence_preds)
 
         # Service
         service_score_preds = self.service_score(hidden_states).squeeze(-1)  # (B)
         service_existence_preds = self.service_existence(hidden_states).squeeze(-1)  # (B)
-        service_score_preds = self.sigmoid(service_score_preds)
+        service_score_preds = self.sigmoid(service_score_preds) * self.std + self.mean
         service_existence_preds = self.sigmoid(service_existence_preds)
 
         # Price
         price_score_preds = self.price_score(hidden_states).squeeze(-1)  # (B)
         price_existence_preds = self.price_existence(hidden_states).squeeze(-1)  # (B)
-        price_score_preds = self.sigmoid(price_score_preds)
+        price_score_preds = self.sigmoid(price_score_preds) * self.std + self.mean
         price_existence_preds = self.sigmoid(price_existence_preds)
 
         return food_score_preds, food_existence_preds, \

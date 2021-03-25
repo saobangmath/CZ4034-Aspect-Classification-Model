@@ -252,20 +252,20 @@ def post_process(poi_span_preds, poi_existence_preds, street_span_preds, street_
     return poi_span_preds, street_span_preds
 
 
-def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confidence_threshold=0.5, save_csv_path=None,
-                                            post_processing=False, show_progress=False):
+def compute_metrics_from_inputs_and_outputs(inputs, outputs, confidence_threshold=0.5, show_progress=False):
     if isinstance(inputs, dict):
         inputs = [inputs]
     if isinstance(outputs, dict):
         outputs = [outputs]
 
     input_ids_all = []
-    has_gt = "poi_start" in inputs[0]
+    is_training = "is_training" in inputs[0]
 
-    poi_span_preds_all, street_span_preds_all = [], []
-    poi_existence_preds_all, street_existence_preds_all = [], []
-    if has_gt:
-        poi_span_gt_all, street_span_gt_all = [], []
+    food_score_preds_all, food_existence_preds_all = [], []
+    service_score_preds_all, service_existence_preds_all = [], []
+    price_score_preds_all, price_existence_preds_all = [], []
+    if is_training:
+        food_score_label_all, service_score_label_all, price_score_label_all = [], [], []
 
     if show_progress:
         from tqdm import tqdm
@@ -277,133 +277,63 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, tokenizer, confiden
         input_ids_all.append(input_ids)
 
         # Groundtruths
-        if has_gt:
-            poi_start_gt, poi_end_gt = inputs_i["poi_start"], inputs_i["poi_end"]
-            street_start_gt, street_end_gt = inputs_i["street_start"], inputs_i["street_end"]
-            # Stack
-            poi_span_gt = torch.stack([poi_start_gt, poi_end_gt], dim=-1)  # (B, 2)
-            street_span_gt = torch.stack([street_start_gt, street_end_gt], dim=-1)  # (B, 2)
+        if is_training:
+            food_score_label = inputs_i["food_score_label"]
+            service_score_label = inputs_i["service_score_label"]
+            price_score_label = inputs_i["price_score_label"]
 
         # Predictions
-        poi_span_preds, street_span_preds = outputs_i["poi_span_preds"], outputs_i["street_span_preds"]  # (B, L, 2)
-        poi_span_preds = poi_span_preds.argmax(dim=1)  # (B, 2)
-        street_span_preds = street_span_preds.argmax(dim=1)  # (B, 2)
-
-        poi_existence_preds = outputs_i["poi_existence_preds"]  # (B,)
-        street_existence_preds = outputs_i["street_existence_preds"]  # (B,)
+        food_score_preds, food_existence_preds = outputs_i["food_score_preds"], outputs_i["food_existence_preds"]
+        service_score_preds, service_existence_preds = outputs_i["service_score_preds"], outputs_i["service_existence_preds"]
+        price_score_preds, price_existence_preds = outputs_i["price_score_preds"], outputs_i["price_existence_preds"]
 
         # Aggregate
-        poi_span_preds_all.append(poi_span_preds)
-        poi_existence_preds_all.append(poi_existence_preds)
-        if has_gt:
-            poi_span_gt_all.append(poi_span_gt)
+        food_score_preds_all.append(food_score_preds)
+        food_existence_preds_all.append(food_existence_preds)
+        service_score_preds_all.append(service_score_preds)
+        service_existence_preds_all.append(service_existence_preds)
+        price_score_preds_all.append(price_score_preds)
+        price_existence_preds_all.append(price_existence_preds)
 
-        street_span_preds_all.append(street_span_preds)
-        street_existence_preds_all.append(street_existence_preds)
-        if has_gt:
-            street_span_gt_all.append(street_span_gt)
+        if is_training:
+            food_score_label_all.append(food_score_label)
+            service_score_label_all.append(service_score_label)
+            price_score_label_all.append(price_score_label)
 
     # Combine results
-    poi_span_preds_all = torch.cat(poi_span_preds_all, dim=0)  # (N, 2), where N is length of the dataset
-    poi_existence_preds_all = torch.cat(poi_existence_preds_all, dim=0)  # (N,)
-    if has_gt:
-        poi_span_gt_all = torch.cat(poi_span_gt_all, dim=0)  # (N, 2)
-
-    street_span_preds_all = torch.cat(street_span_preds_all, dim=0)  # (N, 2)
-    street_existence_preds_all = torch.cat(street_existence_preds_all, dim=0)  # (N,)
-    if has_gt:
-        street_span_gt_all = torch.cat(street_span_gt_all, dim=0)  # (N, 2)
-
-    # Post process
-    poi_span_preds_all, street_span_preds_all = post_process(
-        poi_span_preds_all, poi_existence_preds_all, street_span_preds_all, street_existence_preds_all,
-        confidence_threshold=confidence_threshold, post_processing=post_processing)
+    food_score_preds_all = torch.cat(food_score_preds_all, dim=0)
+    food_existence_preds_all = torch.cat(food_existence_preds_all, dim=0)
+    service_score_preds_all = torch.cat(service_score_preds_all, dim=0)
+    service_existence_preds_all = torch.cat(service_existence_preds_all, dim=0)
+    price_score_preds_all = torch.cat(price_score_preds_all, dim=0)
+    price_existence_preds_all = torch.cat(price_existence_preds_all, dim=0)
+    if is_training:
+        food_score_label_all = torch.cat(food_score_label_all, dim=0)
+        service_score_label_all = torch.cat(service_score_label_all, dim=0)
+        price_score_label_all = torch.cat(price_score_label_all, dim=0)
 
     # Calculate accuracy
-    if has_gt:
-        poi_span_correct_all = (poi_span_gt_all.int() == poi_span_preds_all.int()).all(-1)  # (N,)
-        poi_span_acc = poi_span_correct_all.sum() / float(len(poi_span_correct_all))  # scalar
+    if is_training:
+        # Get predictions
+        food_score_preds_all = food_score_preds_all.int()
+        food_existence_mask = (food_existence_preds_all > confidence_threshold)
+        food_score_preds_all[~food_existence_mask] = 0
+        food_score_correct_all = (food_score_preds_all == food_score_label_all)
+        food_acc = food_score_correct_all.sum() / float(len(food_score_correct_all))  # scalar
 
-        street_span_correct_all = (street_span_gt_all.int() == street_span_preds_all.int()).all(-1)  # (N,)
-        street_span_acc = street_span_correct_all.sum() / float(len(street_span_correct_all))  # scalar
+        service_score_preds_all = service_score_preds_all.int()
+        service_existence_mask = (service_existence_preds_all > confidence_threshold)
+        service_score_preds_all[~service_existence_mask] = 0
+        service_score_correct_all = (service_score_preds_all == service_score_label_all)
+        service_acc = service_score_correct_all.sum() / float(len(service_score_correct_all))  # scalar
 
-        total_correct_all = poi_span_correct_all & street_span_correct_all
-        total_acc = total_correct_all.sum() / float(len(total_correct_all))  # scalar
+        price_score_preds_all = price_score_preds_all.int()
+        price_existence_mask = (price_existence_preds_all > confidence_threshold)
+        price_score_preds_all[price_existence_mask] = 0
+        price_score_correct_all = (price_score_preds_all == price_score_label_all)
+        price_acc = price_score_correct_all.sum() / float(len(price_score_correct_all))  # scalar
 
-        acc = {"total_acc": total_acc, "poi_acc": poi_span_acc, "street_acc": street_span_acc}
+        total_acc = (food_acc + service_acc + price_acc) / 3
 
-    # Generate prediction csv if needed
-    if save_csv_path is not None:
-        assert sum(len(i) for i in input_ids_all) == len(poi_span_preds_all) == len(poi_existence_preds_all) \
-            == len(street_span_preds_all) == len(street_existence_preds_all)
-        if has_gt:
-            assert len(poi_span_preds_all) == len(poi_span_gt_all) == len(street_span_gt_all)
-
-        decode = partial(tokenizer.decode, skip_special_tokens=True,
-                         clean_up_tokenization_spaces=True)
-        input_i, input_j = 0, -1
-        records = []
-
-        for i, (poi_span_pred, poi_existence_pred, street_span_pred, street_existence_pred) \
-                in enumerate(zip(poi_span_preds_all, poi_existence_preds_all,
-                                 street_span_preds_all, street_existence_preds_all)):
-            # If has groundtruths
-            if has_gt:
-                poi_span_gt = poi_span_gt_all[i]
-                street_span_gt = street_span_gt_all[i]
-            # Get index of the `input_ids_all`
-            input_j += 1
-            if input_j >= len(input_ids_all[input_i]):
-                input_i += 1
-                input_j = 0
-            input_ids = input_ids_all[input_i][input_j].tolist()
-            record = {
-                "raw_address": decode(input_ids),
-            }
-
-            if has_gt:
-                to_iterate = [
-                    (poi_span_pred, poi_existence_pred, poi_span_gt, "poi"),
-                    (street_span_pred, street_existence_pred, street_span_gt, "street")
-                ]
-
-                for (pred_start, pred_end), conf_score, (gt_start, gt_end), col_name in to_iterate:
-                    gt_str = "" if gt_start == -1 else decode(input_ids[gt_start:gt_end + 1])
-                    if pred_end < pred_start:
-                        pred_str = "[INVALID]"
-                    else:
-                        pred_str = "" if pred_start == - 1 else decode(input_ids[pred_start:pred_end + 1])
-                    record.update({
-                        f"{col_name}_gt": gt_str, f"{col_name}_pred": pred_str,
-                        f"has_{col_name}": round(conf_score.cpu().item(), 6),
-                    })
-            else:
-                to_iterate = [
-                    (poi_span_pred, poi_existence_pred, "POI"),
-                    (street_span_pred, street_existence_pred, "street")
-                ]
-
-                for (pred_start, pred_end), conf_score, col_name in to_iterate:
-                    if pred_end < pred_start:
-                        pred_str = ""
-                    else:
-                        pred_str = "" if pred_start == - 1 or conf_score < confidence_threshold \
-                            else decode(input_ids[pred_start:pred_end + 1])
-                    record.update({f"{col_name}": pred_str, f"has_{col_name}": round(conf_score.cpu().item(), 6)})
-
-            records.append(record)
-
-        df = pd.DataFrame.from_records(records)
-        if not has_gt:
-
-            def transform(row):
-                if row["POI"] == "" and row["street"] == "":
-                    return ""
-                return f"{row['POI']}/{row['street']}"
-            # Generate to the correct format
-            df["POI/street"] = df.apply(transform, axis=1)
-            df["id"] = df.index
-        df.to_csv(save_csv_path, index=False)
-
-    if has_gt:
-        return acc
+        acc = {"total_acc": total_acc, "food_acc": food_acc, "service_acc": service_acc, "price_acc": price_acc}
+    return acc

@@ -2,13 +2,12 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="5fcc7ccb-4685-41d6-acf3-376bc871961f" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/1_EDA.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/1_EDA.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/data.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/data.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/model.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/trainer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/work_dirs/config.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/work_dirs/config.yaml" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -35,7 +34,7 @@
         <counts>
           <entry key="bat" value="2" />
           <entry key="csv" value="2" />
-          <entry key="gitignore" value="1" />
+          <entry key="gitignore" value="2" />
           <entry key="ipynb" value="1" />
           <entry key="py" value="14" />
           <entry key="txt" value="5" />
@@ -45,7 +44,7 @@
       <usages-collector id="statistics.file.types.open">
         <counts>
           <entry key="IPNB" value="1" />
-          <entry key="PLAIN_TEXT" value="10" />
+          <entry key="PLAIN_TEXT" value="11" />
           <entry key="Python" value="14" />
           <entry key="YAML" value="2" />
         </counts>
@@ -53,16 +52,17 @@
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
           <entry key="bat" value="48" />
-          <entry key="py" value="1794" />
+          <entry key="gitignore" value="14" />
+          <entry key="py" value="2616" />
           <entry key="txt" value="23" />
-          <entry key="yaml" value="29" />
+          <entry key="yaml" value="96" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
-          <entry key="PLAIN_TEXT" value="71" />
-          <entry key="Python" value="1794" />
-          <entry key="YAML" value="29" />
+          <entry key="PLAIN_TEXT" value="85" />
+          <entry key="Python" value="2616" />
+          <entry key="YAML" value="96" />
         </counts>
       </usages-collector>
     </session>
@@ -72,20 +72,28 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/utils/data.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="729">
-              <caret line="60" column="26" selection-start-line="60" selection-start-column="26" selection-end-line="60" selection-end-column="26" />
+            <state>
               <folding>
-                <element signature="e#0#11#0" expanded="true" />
+                <element signature="e#1#35#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/.gitignore">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="291">
+              <caret line="140" lean-forward="true" selection-start-line="140" selection-end-line="140" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/utils/model.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="82">
-              <caret line="265" lean-forward="true" selection-start-line="265" selection-end-line="265" />
+            <state relative-caret-position="252">
+              <caret line="21" column="39" selection-start-line="21" selection-start-column="6" selection-end-line="21" selection-end-column="39" />
               <folding>
                 <element signature="e#0#12#0" expanded="true" />
               </folding>
@@ -96,8 +104,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/utils/trainer.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="189">
-              <caret line="202" lean-forward="true" selection-start-line="202" selection-end-line="202" />
+            <state relative-caret-position="2424">
+              <caret line="346" column="68" selection-start-line="346" selection-start-column="68" selection-end-line="346" selection-end-column="68" />
               <folding>
                 <element signature="e#0#9#0" expanded="true" />
               </folding>
@@ -108,8 +116,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/utils/utils.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="595">
-              <caret line="190" column="16" lean-forward="true" selection-start-line="190" selection-start-column="16" selection-end-line="190" selection-end-column="16" />
+            <state relative-caret-position="-952">
+              <caret line="260" column="13" selection-start-line="260" selection-start-column="13" selection-end-line="260" selection-end-column="13" />
               <folding>
                 <element signature="e#0#11#0" expanded="true" />
               </folding>
@@ -120,8 +128,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/work_dirs/config.yaml">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-486">
-              <caret line="6" column="14" selection-start-line="6" selection-start-column="14" selection-end-line="6" selection-end-column="14" />
+            <state relative-caret-position="156">
+              <caret line="35" column="17" selection-start-line="35" selection-start-column="17" selection-end-line="35" selection-end-column="17" />
             </state>
           </provider>
         </entry>
@@ -132,6 +140,9 @@
     <findStrings>
       <find>.env</find>
       <find>to_</find>
+      <find>gt</find>
+      <find>compute_metrics_from_inputs_and_outputs</find>
+      <find>post_pro</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -144,18 +155,19 @@
         <option value="$PROJECT_DIR$/train.py" />
         <option value="$PROJECT_DIR$/go.bat" />
         <option value="$PROJECT_DIR$/requirements.txt" />
+        <option value="$PROJECT_DIR$/utils/model.py" />
         <option value="$PROJECT_DIR$/utils/utils.py" />
+        <option value="$PROJECT_DIR$/utils/trainer.py" />
         <option value="$PROJECT_DIR$/work_dirs/config.yaml" />
         <option value="$PROJECT_DIR$/utils/data.py" />
-        <option value="$PROJECT_DIR$/utils/trainer.py" />
-        <option value="$PROJECT_DIR$/utils/model.py" />
+        <option value="$PROJECT_DIR$/.gitignore" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds" extendedState="6">
     <option name="x" value="-15" />
     <option name="y" value="-15" />
-    <option name="width" value="3873" />
+    <option name="width" value="1953" />
     <option name="height" value="2093" />
   </component>
   <component name="ProjectView">
@@ -194,7 +206,12 @@
   </component>
   <component name="PropertiesComponent">
     <property name="last_opened_file_path" value="$PROJECT_DIR$/../Deploy-BERT-for-Sentiment-Analysis-with-FastAPI" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+    <property name="settings.editor.selected.configurable" value="preferences.lookFeel" />
+  </component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\Y3-S2\CZ4034\Projects\shopee_code_league_2021" />
+    </key>
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">
@@ -284,9 +301,10 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="484" y="132" width="576" height="290" extended-state="0" />
+    <frame x="-6" y="-6" width="1549" height="837" extended-state="6" />
+    <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.4935305" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.17635404" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -299,7 +317,7 @@
       <window_info anchor="bottom" id="Docker" order="7" show_stripe_button="false" />
       <window_info anchor="bottom" id="Version Control" order="8" weight="0.3286119" />
       <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.5006605" side_tool="true" weight="0.6246459" />
-      <window_info active="true" anchor="bottom" id="Terminal" order="10" visible="true" weight="1.0" />
+      <window_info anchor="bottom" id="Terminal" order="10" visible="true" weight="0.37393767" />
       <window_info anchor="bottom" id="Python Console" order="11" weight="0.63172805" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
@@ -314,13 +332,6 @@
       <provider selected="true" editor-type-id="ipnb-editor">
         <state>
           <selected id="1" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/.gitignore">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="216">
-          <caret line="104" column="4" selection-start-line="104" selection-end-line="104" selection-end-column="4" />
         </state>
       </provider>
     </entry>
@@ -365,13 +376,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/work_dirs/config.yaml">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-486">
-          <caret line="6" column="14" selection-start-line="6" selection-start-column="14" selection-end-line="6" selection-end-column="14" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/data/RestaurantReviews.csv">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="81">
@@ -379,43 +383,56 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/utils/utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-952">
+          <caret line="260" column="13" selection-start-line="260" selection-start-column="13" selection-end-line="260" selection-end-column="13" />
+          <folding>
+            <element signature="e#0#11#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/work_dirs/config.yaml">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="156">
+          <caret line="35" column="17" selection-start-line="35" selection-start-column="17" selection-end-line="35" selection-end-column="17" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/utils/trainer.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="189">
-          <caret line="202" lean-forward="true" selection-start-line="202" selection-end-line="202" />
+        <state relative-caret-position="2424">
+          <caret line="346" column="68" selection-start-line="346" selection-start-column="68" selection-end-line="346" selection-end-column="68" />
           <folding>
             <element signature="e#0#9#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/utils/utils.py">
+    <entry file="file://$PROJECT_DIR$/utils/model.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="595">
-          <caret line="190" column="16" lean-forward="true" selection-start-line="190" selection-start-column="16" selection-end-line="190" selection-end-column="16" />
+        <state relative-caret-position="252">
+          <caret line="21" column="39" selection-start-line="21" selection-start-column="6" selection-end-line="21" selection-end-column="39" />
           <folding>
-            <element signature="e#0#11#0" expanded="true" />
+            <element signature="e#0#12#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/utils/data.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="729">
-          <caret line="60" column="26" selection-start-line="60" selection-start-column="26" selection-end-line="60" selection-end-column="26" />
+        <state>
           <folding>
-            <element signature="e#0#11#0" expanded="true" />
+            <element signature="e#1#35#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/utils/model.py">
+    <entry file="file://$PROJECT_DIR$/.gitignore">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="82">
-          <caret line="265" lean-forward="true" selection-start-line="265" selection-end-line="265" />
-          <folding>
-            <element signature="e#0#12#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="291">
+          <caret line="140" lean-forward="true" selection-start-line="140" selection-end-line="140" />
         </state>
       </provider>
     </entry>

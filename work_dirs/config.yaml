@@ -11,17 +11,19 @@ data:
             - data/RestaurantReviews.csv
 
 model:
-    model_name_or_path: cahya/xlm-roberta-large-indonesian-NER
+    model_name_or_path: bert-base-uncased
     config_name: null
     tokenizer_name: null
     cache_dir: null
-    cls_token: <s>  # need this to map token index. might be "<s>" or "[CLS]", depending on the tokenizer
-    sep_token: </s>  # need this to map token index. might be "</s>" or "[SEP]", depending on the tokenizer
+    cls_token: [CLS]  # need this to map token index. might be "<s>" or "[CLS]", depending on the tokenizer
+    sep_token: [CLS]  # need this to map token index. might be "</s>" or "[SEP]", depending on the tokenizer
 
-    model_class: BertForAddressExtractionWithTwoLinkedHeads
-    freeze_base_model: False
+    model_class: BertForReviewAspectClassification
+    freeze_base_model: true
     fusion: max_pooling
-    lambdas: [1, 1, 1, 1]
+    lambdas: [1, 1, 1, 1, 1, 1]
+    mean: 0.5
+    std: 3
 
 training:
     work_dir: work_dirs/  # set to `null` to not save anything
@@ -31,13 +33,12 @@ training:
     max_grad_norm: 1.0
 
     device: cpu
-    batch_size: 32
+    batch_size: 8
     batch_size_multiplier: 1.2  # eval/train batch size ratio
     num_epochs: 100
-    num_workers: 8
-    debugging: false  # set to 'true' to perform only 10 iterations per epoch
+    num_workers: 2
+    debugging: true  # set to 'true' to perform only 10 iterations per epoch
     early_stopping: 2  # stop training when model is not improved over this number of epochs
 
 evaluation:
     confidence_threshold: 0.51  # predictions with confidence thresholds less than this will be discarded
-    post_processing: true  # whether to perform post processing (recommended)
