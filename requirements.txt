@@ -2,3 +2,4 @@ transformers
 sentencepiece
 tqdm
 loguru
+pyYAML==5.3.1

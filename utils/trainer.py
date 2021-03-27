@@ -73,7 +73,7 @@ class Trainer:
             else:
                 save_dir = os.path.realpath(resume_from)
                 assert os.path.exists(save_dir)
-        elif self.action == "evaluation":
+        elif self.action in ["evaluation", "predict"]:
             save_dir = None
         else:
             raise ValueError(f"Unrecognized action: {self.action}")
@@ -190,6 +190,9 @@ class Trainer:
             self.dataloaders["eval"] = DataLoader(
                 dataset, batch_size=round(batch_size * batch_size_multiplier),
                 shuffle=False, collate_fn=collate_fn, num_workers=num_workers)
+
+        elif self.action == "predict":
+            pass
 
         else:
             raise ValueError(f"Unrecognized action: {self.action}")
@@ -391,3 +394,14 @@ class Trainer:
         assert self.action == "evaluation"
         return self.evaluate_one_epoch(
             self.model, self.dataloaders["eval"], prefix="Evaluation", show_progress=True, debugging=False)
+
+    def predict(self, text):
+        # Tokenize
+        token_idxs = CustomDataset.process_input(self.tokenizer, text)
+        token_idxs = torch.Tensor(token_idxs).long().unsqueeze(0).to(self.device)
+        attention_mask = torch.ones_like(token_idxs)
+
+        output = self.model(token_idxs, attention_mask=attention_mask, is_training=False)
+        print("Review:", text)
+        print(output)
+        print("=" * 40)

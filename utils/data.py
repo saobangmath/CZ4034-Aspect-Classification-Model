@@ -41,6 +41,7 @@ class CustomDataset(Dataset):
             dfs.append(df)
         self.df = pd.concat(dfs, ignore_index=True).reset_index(drop=True)
         self.df = self.df.dropna(subset=["Review"])
+        self.df = self.df.sample(frac=1)
 
     def __len__(self):
         return len(self.df)
@@ -52,10 +53,8 @@ class CustomDataset(Dataset):
         info = data_info[["Review", "Food", "Service", "Price"]].copy()
 
         # Tokens
-        tokens = self.tokenizer.tokenize(info["Review"])
-        token_idxs = self.tokenizer.convert_tokens_to_ids(tokens)[:self.tokenizer.model_max_length - 2]
-        token_idxs = [self._cls_idx] + token_idxs + [self._sep_idx]
-        food, service, price = data_info[["Food", "Service", "Price"]]
+        token_idxs = self.process_input(self.tokenizer, info["Review"])
+        food, service, price = info[["Food", "Service", "Price"]]
 
         return {
             "input_ids": token_idxs, "attention_mask": [1] * len(token_idxs),
@@ -64,6 +63,13 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, idx):
         return self._get_item_for_training(idx)
+
+    @staticmethod
+    def process_input(tokenizer, text):
+        tokens = tokenizer.tokenize(text)
+        token_idxs = tokenizer.convert_tokens_to_ids(tokens)[:tokenizer.model_max_length - 2]
+        token_idxs = [tokenizer.cls_token_id] + token_idxs + [tokenizer.sep_token_id]
+        return token_idxs
 
 
 class DataCollatorWithPadding(HfDataCollatorWithPadding):

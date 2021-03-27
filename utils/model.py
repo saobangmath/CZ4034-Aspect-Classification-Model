@@ -224,24 +224,12 @@ class BertForReviewAspectClassification(nn.Module):
         attention_mask : torch.Tensor
             Tensor of shape (batch_size, sequence_length). Mask to avoid performing attention on padding token indices.
             Mask values selected in ``[0, 1]``.
-        poi_start : torch.Tensor
-            Tensor of shape (batch_size,). Groundtruth labels of start indices of POI (person of interest) in the input
-            sequence. `-1` if not present.
-        poi_end : torch.Tensor
-            Tensor of shape (batch_size,). Groundtruth labels of end indices (**inclusive**) of POI (person of
-            interest) in the input sequence. `-1` if not present.
-        street_start : torch.Tensor
-            Tensor of shape (batch_size,). Groundtruth labels of start indices of street in the input sequence. `-1` if
-            not present.
-        street_end : torch.Tensor
-            Tensor of shape (batch_size,). Groundtruth labels of end indices (**inclusive**) of street in the input
-            sequence. `-1` if not present.
-        has_poi : torch.Tensor (optional)
-            Tensor of shape (batch_size,). Mask to indicate whether there is POI info in a input sequence. This can
-            also be obtained by masking `poi_start != -1`.
-        has_street : torch.Tensor (optional)
-            Tensor of shape (batch_size,). Mask to indicate whether there is street info in a input sequence. This can
-            also be obtained by masking `street_start != -1`.
+        food_score_label : torch.Tensor
+
+        service_score_label : torch.Tensor
+
+        price_score_label : torch.Tensor
+
         """
         # Base forward (feature extractor)
         hidden_states = self.base_model(
@@ -249,9 +237,10 @@ class BertForReviewAspectClassification(nn.Module):
         attention_mask = attention_mask.bool()
 
         # Calculate existence
-        food_existence_label = (food_score_label != 0).bool()
-        service_existence_label = (service_score_label != 0).bool()
-        price_existence_label = (price_score_label != 0).bool()
+        if food_score_label is not None:
+            food_existence_label = (food_score_label != 0).bool()
+            service_existence_label = (service_score_label != 0).bool()
+            price_existence_label = (price_score_label != 0).bool()
 
         food_score_preds, food_existence_preds, \
             service_score_preds, service_existence_preds, \
