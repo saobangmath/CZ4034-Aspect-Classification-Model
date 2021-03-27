@@ -8,7 +8,6 @@ from utils.trainer import Trainer
 
 DESCRIPTION = """Train and evaluate a BERT for address extraction model."""
 
-
 def main(args):
     with open(args.config_path, "r") as conf:
         config = yaml.load(conf, Loader=yaml.FullLoader)

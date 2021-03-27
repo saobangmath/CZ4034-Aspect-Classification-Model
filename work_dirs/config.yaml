@@ -1,14 +1,13 @@
 data:
     train:
         paths:
-            - data/RestaurantReviews.csv
-        p_augmentation: 0.3  # probability of performing random token replacement during training
+            - data/train.csv
     val:
         paths:
-            - data/RestaurantReviews.csv
+            - data/validation.csv
     test:
         paths:
-            - data/RestaurantReviews.csv
+            - data/test.csv
 
 model:
     model_name_or_path: bert-base-uncased
