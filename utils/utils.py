@@ -1,9 +1,7 @@
 import time
 import inspect
-from functools import partial
 
 import torch
-import pandas as pd
 from loguru import logger
 
 
@@ -219,39 +217,6 @@ class Timer:
     def get_total_time(self):
         return time.time() - self.global_start_time
 
-
-def post_process(poi_span_preds, poi_existence_preds, street_span_preds, street_existence_preds,
-                 confidence_threshold=0.5, post_processing=False):
-    """Perform post processing.
-    1. Mask predictions that model is not confident about by -1 (i.e., not present).
-    2. If `post_processing=True`:
-        a. Remove predictions where one span contains the other (keep the one with higher score).
-    """
-    # Mask predictions that model is not confident about by -1 (i.e., not present)
-    has_poi_preds_all = (poi_existence_preds >= confidence_threshold)  # (B,)
-    has_street_preds_all = (street_existence_preds >= confidence_threshold)  # (B,)
-
-    negative_one = torch.tensor(-1).to(poi_span_preds)
-    poi_span_preds = torch.where(has_poi_preds_all.unsqueeze(-1), poi_span_preds, negative_one)  # (B, 2)
-    street_span_preds = torch.where(
-        has_street_preds_all.unsqueeze(-1), street_span_preds, negative_one)  # (B, 2)
-
-    # Remove predictions where one span contains the other (keep the one with higher score)
-    if post_processing:
-        poi_start_preds, poi_end_preds = poi_span_preds[:, 0], poi_span_preds[:, 1]
-        street_start_preds, street_end_preds = street_span_preds[:, 0], street_span_preds[:, 1]
-
-        mask_containing = ((poi_start_preds >= street_start_preds) & (poi_end_preds <= street_end_preds) |
-                           (poi_start_preds < street_start_preds) & (poi_end_preds >= street_end_preds))  # (B,)
-        mask_containing = mask_containing.unsqueeze(-1)  # (B, 1)
-        mask_confidence = (poi_existence_preds > street_existence_preds).unsqueeze(-1)  # (B, 1)
-
-        poi_span_preds = torch.where(mask_containing & (~mask_confidence), negative_one, poi_span_preds)
-        street_span_preds = torch.where(mask_containing & mask_confidence, negative_one, street_span_preds)
-
-    return poi_span_preds, street_span_preds
-
-
 def compute_metrics_from_inputs_and_outputs(inputs, outputs, confidence_threshold=0.5, show_progress=False,
                                             output_acc=True):
     if isinstance(inputs, dict):
@@ -315,24 +280,25 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, confidence_threshol
     # Calculate accuracy
     if output_acc:
         # Get predictions
+        # food
         food_score_preds_all = food_score_preds_all.int()
         food_existence_mask = (food_existence_preds_all > confidence_threshold)
         food_score_preds_all[~food_existence_mask] = 0
         food_score_correct_all = (food_score_preds_all == food_score_label_all)
         food_acc = food_score_correct_all.sum() / float(len(food_score_correct_all))  # scalar
-
+        # service
         service_score_preds_all = service_score_preds_all.int()
         service_existence_mask = (service_existence_preds_all > confidence_threshold)
         service_score_preds_all[~service_existence_mask] = 0
         service_score_correct_all = (service_score_preds_all == service_score_label_all)
         service_acc = service_score_correct_all.sum() / float(len(service_score_correct_all))  # scalar
-
+        # score
         price_score_preds_all = price_score_preds_all.int()
         price_existence_mask = (price_existence_preds_all > confidence_threshold)
         price_score_preds_all[price_existence_mask] = 0
         price_score_correct_all = (price_score_preds_all == price_score_label_all)
         price_acc = price_score_correct_all.sum() / float(len(price_score_correct_all))  # scalar
-
+        # total accuracy
         total_acc = (food_acc + service_acc + price_acc) / 3
 
         acc = {"total_acc": total_acc, "food_acc": food_acc, "service_acc": service_acc, "price_acc": price_acc}

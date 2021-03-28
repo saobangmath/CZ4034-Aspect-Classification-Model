@@ -8,7 +8,7 @@ from transformers import DataCollatorWithPadding as HfDataCollatorWithPadding
 from .utils import from_config
 
 class CustomDataset(Dataset):
-    """Dataset for CZ4034 - Money, Food and Service Elements Extraction task.
+    """Dataset for CZ4034 - Money, Food and Service Aspects Extraction task.
 
     Parameters
     ----------
@@ -16,8 +16,6 @@ class CustomDataset(Dataset):
         Tokenizer.
     paths : str or list[str]
         Paths to reviews data files.
-    p_augmentation : float
-        Probability of performing random replacement on POI/street data.
     cls_token : str
         String representation of "cls" token. Might be "<s>" or "[CLS]", depending on the tokenizer.
     sep_token : str

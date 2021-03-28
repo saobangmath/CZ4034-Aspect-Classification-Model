@@ -401,7 +401,19 @@ class Trainer:
         token_idxs = torch.Tensor(token_idxs).long().unsqueeze(0).to(self.device)
         attention_mask = torch.ones_like(token_idxs)
 
-        output = self.model(token_idxs, attention_mask=attention_mask, is_training=False)
+        tensorOutput = self.model(token_idxs, attention_mask=attention_mask, is_training=False)
+
+        output = {
+            "food_score_preds" : tensorOutput["food_score_preds"].item(),
+            "food_existence_preds" : tensorOutput["food_existence_preds"].item(),
+            "service_score_preds" : tensorOutput["service_score_preds"].item(),
+            "service_existence_preds" : tensorOutput["service_existence_preds"].item(),
+            "price_score_preds" : tensorOutput["price_score_preds"].item(),
+            "price_existence_preds" : tensorOutput["price_existence_preds"].item(),
+        }
+
         print("Review:", text)
-        print(output)
+        print("Predict:", output)
         print("=" * 40)
+
+        return output

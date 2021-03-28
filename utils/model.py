@@ -50,11 +50,13 @@ class BertForReviewAspectClassification(nn.Module):
         Whether to freeze the base BERT model.
     fusion : str
         One of ["max_pooling", "average_pooling", "sum"]. How the hidden states from each timestep will be fused
-        together to produce a single vector used for binary classifiers (for exist/non-exist of POI/street).
+        together to produce a single vector used for binary classifiers (for exist/non-exist of food/service/price).
         According to http://arxiv.org/abs/1909.07755, max pooling works best.
     lambdas : list[float]
-        Loss weights. Final loss will be computed as: `lambda[0] * poi_span_loss + lambda[1] * poi_existence +
-        lambda[2] * street_span_loss + lambda[3] * street_existence `
+        Loss weights. Final loss will be computed as:
+        `lambda[0] * food_score_loss + lambda[1] * food_existence_loss +
+         lambda[2] * service_score_loss + lambda[3] * service_existence_loss +
+         lambda[4] * price_score_loss + lambda[5] * price_existence_loss`
     """
     @from_config(main_args="model", requires_all=True)
     def __init__(self, model_name_or_path, config_name=None, tokenizer_name=None, cache_dir=None,
