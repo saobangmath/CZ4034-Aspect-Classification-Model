@@ -295,7 +295,7 @@ def compute_metrics_from_inputs_and_outputs(inputs, outputs, confidence_threshol
         # score
         price_score_preds_all = price_score_preds_all.int()
         price_existence_mask = (price_existence_preds_all > confidence_threshold)
-        price_score_preds_all[price_existence_mask] = 0
+        price_score_preds_all[~price_existence_mask] = 0
         price_score_correct_all = (price_score_preds_all == price_score_label_all)
         price_acc = price_score_correct_all.sum() / float(len(price_score_correct_all))  # scalar
         # total accuracy
