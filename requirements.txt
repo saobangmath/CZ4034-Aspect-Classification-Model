@@ -3,3 +3,6 @@ sentencepiece
 tqdm
 loguru
 pyYAML==5.3.1
+pandas
+torch
+gdown

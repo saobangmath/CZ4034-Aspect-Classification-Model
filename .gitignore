@@ -141,5 +141,6 @@ workspace.code-workspace
 # Not ignoring these files
 !1_EDA.ipynb
 !work_dirs/config.yaml
+!work_dirs/config_cpu.yaml
 
 get-pip.py

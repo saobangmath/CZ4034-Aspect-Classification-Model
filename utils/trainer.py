@@ -12,9 +12,9 @@ import yaml
 from loguru import logger
 from transformers import AdamW, get_linear_schedule_with_warmup
 
-from utils.model import model_classes
-from utils.data import CustomDataset, DataCollatorWithPadding
-from utils.utils import (from_config, to_device, compute_metrics_from_inputs_and_outputs,
+from .model import model_classes
+from .data import CustomDataset, DataCollatorWithPadding
+from .utils import (from_config, to_device, compute_metrics_from_inputs_and_outputs,
                          ConfigComparer, Timer)
 
 

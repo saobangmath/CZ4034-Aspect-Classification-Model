@@ -1,11 +1,13 @@
 import yaml
+import pathlib
 
 from utils.trainer import Trainer
 
 DESCRIPTION = """Make prediction."""
 
-config_path = "./work_dirs/20210327_165510/config.yaml"
-load_from = "./work_dirs/20210327_165510/checkpoint_best.pth"
+current_dir = pathlib.Path(__file__).parent.absolute()
+config_path = str(current_dir.joinpath("work_dirs/config_cpu.yaml"))
+load_from = str(current_dir.joinpath("work_dirs/checkpoint_best.pth"))
 
 with open(config_path, "r") as conf:
     config = yaml.load(conf, Loader=yaml.FullLoader)
