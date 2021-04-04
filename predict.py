@@ -1,7 +1,8 @@
 import yaml
 import pathlib
 
-from utils.trainer import Trainer
+# Need "." to import the models from the search engine
+from .utils.trainer import Trainer
 
 DESCRIPTION = """Make prediction."""
 
