@@ -9,7 +9,6 @@ from transformers import (
 
 from .utils import from_config
 
-
 model_classes = {}
 
 
@@ -58,6 +57,7 @@ class BertForReviewAspectClassification(nn.Module):
          lambda[2] * service_score_loss + lambda[3] * service_existence_loss +
          lambda[4] * price_score_loss + lambda[5] * price_existence_loss`
     """
+
     @from_config(main_args="model", requires_all=True)
     def __init__(self, model_name_or_path, config_name=None, tokenizer_name=None, cache_dir=None,
                  from_pretrained=False, freeze_base_model=False, fusion="max_pooling", lambdas=[1, 1, 1, 1, 1, 1],
@@ -135,7 +135,7 @@ class BertForReviewAspectClassification(nn.Module):
         return inp
 
     def _get_predictions(self, hidden_states, attention_mask):
-        hidden_states = self.fusion_layer(hidden_states, attention_mask, 1) # (B, H)
+        hidden_states = self.fusion_layer(hidden_states, attention_mask, 1)  # (B, H)
 
         # Food
         food_score_preds = self.food_score(hidden_states).squeeze(-1)  # (B)
@@ -160,15 +160,15 @@ class BertForReviewAspectClassification(nn.Module):
                price_score_preds, price_existence_preds
 
     def _compute_losses(
-        self,
-        # Predictions
-        food_score_preds, food_existence_preds,
-        service_score_preds, service_existence_preds,
-        price_score_preds, price_existence_preds,
-        # Groundtruths
-        food_score_label, food_existence_label,
-        service_score_label, service_existence_label,
-        price_score_label, price_existence_label,
+            self,
+            # Predictions
+            food_score_preds, food_existence_preds,
+            service_score_preds, service_existence_preds,
+            price_score_preds, price_existence_preds,
+            # Groundtruths
+            food_score_label, food_existence_label,
+            service_score_label, service_existence_label,
+            price_score_label, price_existence_label,
     ):
         """Compute losses (including total loss) given loss weights"""
 
@@ -245,8 +245,8 @@ class BertForReviewAspectClassification(nn.Module):
             price_existence_label = (price_score_label != 0).bool()
 
         food_score_preds, food_existence_preds, \
-            service_score_preds, service_existence_preds, \
-            price_score_preds, price_existence_preds = \
+        service_score_preds, service_existence_preds, \
+        price_score_preds, price_existence_preds = \
             self._get_predictions(hidden_states, attention_mask)
 
         outp = {"food_score_preds": food_score_preds,
@@ -274,3 +274,11 @@ class BertForReviewAspectClassification(nn.Module):
             outp["losses"] = losses
 
         return outp
+
+    def get_encoded_vectors(self, input_ids, attention_mask):
+        hidden_states = self.base_model(
+            input_ids=input_ids, attention_mask=attention_mask)["last_hidden_state"]  # (B, L, H)
+
+        hidden_states = hidden_states[:, 0, :]
+
+        return hidden_states

@@ -39,7 +39,7 @@ class CustomDataset(Dataset):
             dfs.append(df)
         self.df = pd.concat(dfs, ignore_index=True).reset_index(drop=True)
         self.df = self.df.dropna(subset=["Review"])
-        self.df = self.df.sample(frac=1)
+        # self.df = self.df.sample(frac=1)
 
     def __len__(self):
         return len(self.df)

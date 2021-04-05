@@ -6,6 +6,7 @@ from pathlib import Path
 from shutil import copy, SameFileError
 
 from tqdm import tqdm
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import yaml
@@ -15,7 +16,7 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 from .model import model_classes
 from .data import CustomDataset, DataCollatorWithPadding
 from .utils import (from_config, to_device, compute_metrics_from_inputs_and_outputs,
-                         ConfigComparer, Timer)
+                    ConfigComparer, Timer)
 
 
 class Trainer:
@@ -73,7 +74,7 @@ class Trainer:
             else:
                 save_dir = os.path.realpath(resume_from)
                 assert os.path.exists(save_dir)
-        elif self.action in ["evaluation", "predict"]:
+        elif self.action in ["evaluation", "predict", "search"]:
             save_dir = None
         else:
             raise ValueError(f"Unrecognized action: {self.action}")
@@ -194,6 +195,17 @@ class Trainer:
         elif self.action == "predict":
             pass
 
+        elif self.action == "search":
+            set_info = self.config["data"]["train"]
+            shuffle = False
+            bs = batch_size
+
+            dataset = CustomDataset(
+                self.config, tokenizer=self.tokenizer, paths=set_info["paths"])
+            self.dataloaders["train"] = DataLoader(
+                dataset, batch_size=bs, shuffle=shuffle,
+                collate_fn=collate_fn, num_workers=num_workers)
+
         else:
             raise ValueError(f"Unrecognized action: {self.action}")
 
@@ -275,7 +287,7 @@ class Trainer:
                             to_tqdm.append(f"{loss_n.item():.3f}")
 
                 des = (
-                    "{:25}" + "|" + "{:^15}" * 3 + "|" + "{:^15}" * 3 + "|" + "{:^15}" * 3 + "|"
+                        "{:25}" + "|" + "{:^15}" * 3 + "|" + "{:^15}" * 3 + "|" + "{:^15}" * 3 + "|"
                 ).format(description, *to_tqdm)
                 t.set_description(des)
 
@@ -404,12 +416,12 @@ class Trainer:
         tensorOutput = self.model(token_idxs, attention_mask=attention_mask, is_training=False)
 
         output = {
-            "food_score_preds" : tensorOutput["food_score_preds"].item(),
-            "food_existence_preds" : tensorOutput["food_existence_preds"].item(),
-            "service_score_preds" : tensorOutput["service_score_preds"].item(),
-            "service_existence_preds" : tensorOutput["service_existence_preds"].item(),
-            "price_score_preds" : tensorOutput["price_score_preds"].item(),
-            "price_existence_preds" : tensorOutput["price_existence_preds"].item(),
+            "food_score_preds": tensorOutput["food_score_preds"].item(),
+            "food_existence_preds": tensorOutput["food_existence_preds"].item(),
+            "service_score_preds": tensorOutput["service_score_preds"].item(),
+            "service_existence_preds": tensorOutput["service_existence_preds"].item(),
+            "price_score_preds": tensorOutput["price_score_preds"].item(),
+            "price_existence_preds": tensorOutput["price_existence_preds"].item(),
         }
 
         print("Review:", text)
@@ -417,3 +429,44 @@ class Trainer:
         print("=" * 40)
 
         return output
+
+    def encode_data(self):
+        encoded_vectors = []
+
+        with torch.no_grad():
+            for i, data in enumerate(tqdm(self.dataloaders["train"])):
+                if i == 10:
+                    break
+                # Input
+                data = to_device(data, self.device)
+                input_ids = data["input_ids"]
+                attention_mask = data["attention_mask"]
+
+                # Forward
+                encoded_vector = self.model.get_encoded_vectors(
+                    input_ids, attention_mask.bool()).cpu().numpy()
+                encoded_vectors.append(encoded_vector)
+
+        encoded_vectors = np.concatenate(encoded_vectors, axis=0)  # (N, H)
+        return encoded_vectors
+
+    def get_encoded_vector(self, text):
+        # Tokenize
+        token_idxs = CustomDataset.process_input(self.tokenizer, text)
+        token_idxs = torch.Tensor(token_idxs).long().unsqueeze(0).to(self.device)
+        attention_mask = torch.ones_like(token_idxs)
+
+        with torch.no_grad():
+            encoded_vector = self.model.get_encoded_vectors(
+                token_idxs, attention_mask=attention_mask.bool()).cpu().numpy()  # (1, H)
+
+        return encoded_vector
+
+    def search(self, query, database, top_k=10):
+        query = query / np.linalg.norm(query, ord=2, axis=1, keepdims=True)
+        database = database / np.linalg.norm(database, ord=2, axis=1, keepdims=True)
+
+        scores = np.matmul(database, query.T).reshape(-1)  # (N,)
+        top_k_idxs = np.argsort(scores, axis=0)[-top_k:][::-1]
+        texts = [self.dataloaders["train"].dataset.df.iloc[i]["Review"] for i in top_k_idxs]
+        return texts

@@ -4,10 +4,10 @@ data:
             - data/train.csv
     val:
         paths:
-            - data/validation.csv
+            - data/train.csv
     test:
         paths:
-            - data/test.csv
+            - data/train.csv
 
 model:
     model_name_or_path: bert-base-uncased
@@ -35,7 +35,7 @@ training:
     batch_size: 6
     batch_size_multiplier: 1.5  # eval/train batch size ratio
     num_epochs: 100
-    num_workers: 2
+    num_workers: 0
     debugging: false  # set to 'true' to perform only 10 iterations per epoch
     early_stopping: 2  # stop training when model is not improved over this number of epochs
 
