@@ -10,7 +10,7 @@ data:
             - data/test.csv
 
 model:
-    model_name_or_path: bert-base-uncased
+    model_name_or_path: bert-base-cased
     config_name: null
     tokenizer_name: null
     cache_dir: null
@@ -26,7 +26,7 @@ model:
 
 training:
     work_dir: work_dirs/  # set to `null` to not save anything
-    learning_rate: 5e-5
+    learning_rate: 1e-6
     weight_decay: 0.01
     lr_warmup: 0.1  # fraction of total number of iterations used to warm up training
     max_grad_norm: 1.0

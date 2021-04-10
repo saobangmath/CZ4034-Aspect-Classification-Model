@@ -1,13 +1,12 @@
 import yaml
 import pathlib
 
-# Need "." to import the models from the search engine
-from .utils.trainer import Trainer
+from utils.trainer import Trainer
 
 DESCRIPTION = """Make prediction."""
 
 current_dir = pathlib.Path(__file__).parent.absolute()
-config_path = str(current_dir.joinpath("work_dirs/config_cpu.yaml"))
+config_path = str(current_dir.joinpath("work_dirs/config.yaml"))
 load_from = str(current_dir.joinpath("work_dirs/checkpoint_best.pth"))
 
 with open(config_path, "r") as conf:
