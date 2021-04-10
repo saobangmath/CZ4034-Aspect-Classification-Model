@@ -8,6 +8,6 @@ MODEL_DIR.mkdir(parents=True, exist_ok=True)
 MODEL_PATH = MODEL_DIR.joinpath("checkpoint_best.pth")
 
 gdown.download(
-    "https://drive.google.com/uc?id=1-RAPEW5n8PKzS2cetkekwc5XN_4M49RC",
+    "https://drive.google.com/uc?id=11VP-waIxx-KkM37Pgc8WYsizG_Lq_oo1",
     output=str(MODEL_PATH),
 )
